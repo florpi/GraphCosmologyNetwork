@@ -2,6 +2,8 @@ import numpy as np
 
 def train_test_val_split(n_nodes, train_size = 0.7):
 
+	np.random.seed(0)
+
 	test_val_idx = np.random.choice(n_nodes,
 			size = int( (1. - train_size) * n_nodes),
 			replace = False)

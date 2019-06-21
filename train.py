@@ -12,8 +12,9 @@ import time
 
 # **************************** DEFINE HYPERPARAMS ***********************
 maximum_distance = 2 # Mpc
-learning_rate = 0.01
+learning_rate = 0.001
 num_epochs = 30
+model = 'gcn'
 
 # **************************** DEFINE GRAPH ***********************
 
@@ -33,20 +34,22 @@ scaler = StandardScaler()
 
 scaler.fit(G.ndata['feat'][train_idx,:])
 
-G.ndata['std_feat'] = scaler.transform(G.ndata['feat'])
 # Standarize features based on training set statistics
+G.ndata['std_feat'] = scaler.transform(G.ndata['feat'])
 
 
 # ******************  DEFINE NETWORK ***********************
 
-#net = gcn.GCN(G.ndata['std_feat'].shape[-1], 32, 1)
-net = gat.GAT(G,
+
+if model == 'gat':
+	net = gat.GAT(G,
 		in_dim = G.ndata['std_feat'].shape[-1],
 		hidden_dim = 8,
 		out_dim = 1,
 		num_heads = 2)
 
-
+else:
+	net = gcn.GCN(G.ndata['std_feat'].shape[-1], 200, 1)
 
 # ******************  TRAINING LOOP ***********************
 
@@ -57,8 +60,11 @@ for epoch in range(num_epochs):
 	if epoch >= 3:
 		t0 = time.time()
 
-	#logits = net(G,  torch.tensor(G.ndata['std_feat']).float())
-	logits = net(torch.tensor(G.ndata['std_feat']).float())
+	if model == 'gat':
+		logits = net(torch.tensor(G.ndata['std_feat']).float())
+
+	else:
+		logits = net(G,  torch.tensor(G.ndata['std_feat']).float())
 
 	# we save the logits for visualization later
 	all_logits.append(logits.detach())

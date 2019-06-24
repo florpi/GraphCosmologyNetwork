@@ -39,16 +39,16 @@ class GCNLayer(nn.Module):
 
 # Define a 2-layer GCN model
 class GCN(nn.Module):
-    def __init__(self, in_feats, hidden_size, num_classes):
+    def __init__(self, in_feats, hidden_size, out_feats):
         super(GCN, self).__init__()
         self.gcn1 = GCNLayer(in_feats, hidden_size)
-        self.gcn2 = GCNLayer(hidden_size, num_classes)
+        self.gcn2 = GCNLayer(hidden_size, hidden_size)
+        self.gcn3 = GCNLayer(hidden_size, out_feats)
 
     def forward(self, g, inputs):
         h = self.gcn1(g, inputs)
         h = torch.relu(h)
         h = self.gcn2(g, h)
+        h = torch.relu(h)
+        h = self.gcn2(g, h)
         return h
-# The first layer transforms input features of size of 34 to a hidden size of 5.
-# The second layer transforms the hidden layer and produces output features of
-# size 2, corresponding to the two groups of the karate club.

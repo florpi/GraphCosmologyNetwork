@@ -1,4 +1,5 @@
 import h5py
+import pickle
 from GNN.inputs import split
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -9,6 +10,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# **************************** DEFINE HYPERPARAMS ***********************
+learning_rate = 1.e-3
+num_epochs = 1 
+hidden_size = 512 
+
+lc_path = '../outputs/learning_curves/'
 hdf5_filename = '/cosma5/data/dp004/dc-cues1/features/halo_features_s99'
 with h5py.File(hdf5_filename,'r+') as feats: 
 	
@@ -31,8 +38,6 @@ train_mask = torch.Tensor(train_idx).long()
 test_mask = torch.Tensor(test_idx).long()
 val_mask = torch.Tensor(val_idx).long()
 
-
-
 train_features = features[train_idx,:]
 train_labels = labels[train_idx] 
 val_features = features[val_idx,:]
@@ -49,15 +54,12 @@ std_features = scaler.transform(features)
 
 std_features = torch.tensor(std_features).float()
 labels = torch.tensor(labels).float().unsqueeze(-1)
-
-learning_rate = 1e-3
-num_epochs = 5
 class Net(nn.Module):
 		def __init__(self ):
 				super(Net, self).__init__()
-				self.fc1 = nn.Linear(n_features, 200) 
-				self.fc2 = nn.Linear(200, 200)
-				self.fc3 = nn.Linear(200, 1)
+				self.fc1 = nn.Linear(n_features, hidden_size) 
+				self.fc2 = nn.Linear(hidden_size, hidden_size)
+				self.fc3 = nn.Linear(hidden_size, 1)
 
 
 		def forward(self, x):
@@ -70,6 +72,7 @@ class Net(nn.Module):
 net = Net()
 
 
+train_loss, validation_loss = [], []
 optimizer = torch.optim.Adam(net.parameters(), lr = learning_rate)
 for epoch in range(num_epochs):
 
@@ -79,11 +82,13 @@ for epoch in range(num_epochs):
 
 
 	loss = criterion(logits[train_mask, :], labels[train_mask, :])
+	train_loss.append(loss.item())
 
 	optimizer.zero_grad()
 	loss.backward()
 	optimizer.step()
 	val_loss = criterion(logits[val_mask, :], labels[val_mask, :])
+	validation_loss.append(val_loss.item())
 
 
 	print('Epoch %d | Loss: %.4f | Validation Loss: %.4f ' % (epoch, loss.item(), val_loss.item()))
@@ -94,4 +99,7 @@ test_loss = criterion(logits[test_mask, :], labels[test_mask, :])
 
 print(f'Test loss {test_loss}')
 
+loss_dict = {'train': train_loss, 'val': val_loss}
+with open(lc_path + 'fcn.pickle', 'wb') as handle:
+	    pickle.dump(loss_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

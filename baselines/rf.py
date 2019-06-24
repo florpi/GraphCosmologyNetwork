@@ -43,7 +43,7 @@ n_estimators = [int(x) for x in np.linspace(start = 200, stop = 1000, num = 10)]
 # Number of features to consider at every split
 max_features = ['auto', 'sqrt']
 # Maximum number of levels in tree
-max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
+max_depth = [int(x) for x in np.linspace(10, 110, num = 5)]
 max_depth.append(None)
 # Minimum number of samples required to split a node
 min_samples_split = [2, 5, 10]

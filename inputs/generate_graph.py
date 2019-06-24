@@ -8,7 +8,7 @@ import torch
 from sklearn.preprocessing import StandardScaler
 
 
-def hdf52graph(filename, maximum_distance):
+def hdf52graph(filename, maximum_distance, n_neighbors = None):
 
 	with h5py.File(filename,'r+') as feats: 
 
@@ -19,6 +19,7 @@ def hdf52graph(filename, maximum_distance):
 		tree = spatial.cKDTree(positions)
 
 		edgeList = tree.query_pairs(maximum_distance) 
+		#distances, edgeList = tree.query(positions,n_neighbors, distance_upper_bound = maximum_distance) 
 
 		src, dst = zip(*edgeList)
 		G = dgl.DGLGraph()

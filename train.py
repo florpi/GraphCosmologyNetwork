@@ -12,7 +12,7 @@ import pickle
 
 
 # **************************** DEFINE HYPERPARAMS ***********************
-maximum_distance = 1 # Mpc
+maximum_distance = 10 # Mpc
 learning_rate = 1.e-3
 num_epochs = 100
 conv_hidden_size = 32
@@ -115,6 +115,6 @@ print(f'Test loss {test_loss}')
 loss_dict['train'] = train_loss
 loss_dict['val'] = validation_loss
 loss_dict['test'] = test_loss 
-with open(lc_path + f'{model}.pickle', 'wb') as handle:
+with open(lc_path + f'{model}_big.pickle', 'wb') as handle:
 	    pickle.dump(loss_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

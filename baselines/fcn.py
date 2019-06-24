@@ -12,8 +12,14 @@ import torch.nn.functional as F
 
 # **************************** DEFINE HYPERPARAMS ***********************
 learning_rate = 1.e-3
-num_epochs = 1 
+num_epochs = 100
 hidden_size = 512 
+loss_dict = {
+		'learning_rate': learning_rate,
+		'hidden_size': conv_hidden_size,
+		}
+
+
 
 lc_path = '../outputs/learning_curves/'
 hdf5_filename = '/cosma5/data/dp004/dc-cues1/features/halo_features_s99'
@@ -99,7 +105,7 @@ test_loss = criterion(logits[test_mask, :], labels[test_mask, :])
 
 print(f'Test loss {test_loss}')
 
-loss_dict = {'train': train_loss, 'val': val_loss}
+loss_dict = {'train': train_loss, 'val': validation_loss}
 with open(lc_path + 'fcn.pickle', 'wb') as handle:
 	    pickle.dump(loss_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

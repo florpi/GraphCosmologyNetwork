@@ -39,7 +39,7 @@ std_features_test = scaler.transform(test_features)
 
 
 # Number of trees in random forest
-n_estimators = [int(x) for x in np.linspace(start = 200, stop = 1500, num = 10)]
+n_estimators = [int(x) for x in np.linspace(start = 200, stop = 1000, num = 10)]
 # Number of features to consider at every split
 max_features = ['auto', 'sqrt']
 # Maximum number of levels in tree
@@ -68,7 +68,7 @@ print(random_grid)
 rf = RandomForestRegressor()
 # Random search of parameters, using 3 fold cross validation, 
 # search across 100 different combinations, and use all available cores
-rf_random = RandomizedSearchCV(estimator = rf, param_distributions = random_grid, n_iter = 100, cv = 3, verbose=2, random_state=42, n_jobs = -1)
+rf_random = RandomizedSearchCV(estimator = rf, param_distributions = random_grid, n_iter = 100, cv = 3, verbose=2, random_state=42, n_jobs = 64)
 
 # Fit the random search model
 rf_random.fit(std_features_train, train_labels)

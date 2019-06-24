@@ -12,12 +12,21 @@ import pickle
 
 
 # **************************** DEFINE HYPERPARAMS ***********************
-maximum_distance = 2 # Mpc
+maximum_distance = 1 # Mpc
 learning_rate = 1.e-3
 num_epochs = 100
 conv_hidden_size = 32
+embedding_size = conv_hidden_size
 readout_hidden_size = 512
 model = 'gcn'
+
+loss_dict = {
+		'maximum_distance': maximum_distance,
+		'learning_rate': learning_rate,
+		'conv_hidden_size': conv_hidden_size,
+		'readout_hidden_size': readout_hidden_size,
+		'model': model
+		}
 
 # **************************** INPUT/ OUTPUT DIRSi ***********************
 lc_path = 'outputs/learning_curves/'
@@ -41,7 +50,7 @@ scaler = StandardScaler()
 scaler.fit(G.ndata['feat'][train_idx,:])
 
 # Standarize features based on training set statistics
-G.ndata['std_feat'] = scaler.transform(G.ndata['feat'])
+G.ndata['std_feat'] = torch.Tensor(scaler.transform(G.ndata['feat'])).float()
 
 
 # ******************  DEFINE NETWORK ***********************
@@ -51,16 +60,21 @@ if model == 'gat':
 	net = gat.GAT(G,
 		in_dim = G.ndata['std_feat'].shape[-1],
 		hidden_dim = conv_hidden_size,
-		out_dim = conv_hidden_size,
+		embedding_size = conv_hidden_size,
+		readout_hidden_size = readout_hidden_size,
 		num_heads = 2)
 
 else:
-	net = gcn.GCN(G.ndata['std_feat'].shape[-1], conv_hidden_size, conv_hidden_size)
+	net = gcn.GCN(G.ndata['std_feat'].shape[-1], conv_hidden_size, embedding_size, readout_hidden_size )
 
 # ******************  TRAINING LOOP ***********************
 
+
+print(net.parameters())
+
 optimizer = torch.optim.Adam(net.parameters(), lr = learning_rate)
 all_logits, dur, train_loss, validation_loss = [], [], [], []
+
 for epoch in range(num_epochs):
 
 	if epoch >= 3:
@@ -75,26 +89,16 @@ for epoch in range(num_epochs):
 	# we save the logits for visualization later
 	all_logits.append(logits.detach())
 
-	# Readout function
-
-	readout = nn.Linear(logits.shape[-1], readout_hidden_size)(logits)
-	readout = torch.relu(readout)
-
-	readout = nn.Linear(readout_hidden_size, readout_hidden_size)(readout)
-	readout = torch.relu(readout)
-
-	readout = nn.Linear(readout.shape[-1], 1)(readout)
 
 	criterion = nn.MSELoss()
 
-
-	loss = criterion(readout[train_mask, :], labels[train_mask, :])
+	loss = criterion(logits[train_mask, :], labels[train_mask, :])
 	train_loss.append(loss.item())
 
 	optimizer.zero_grad()
 	loss.backward()
 	optimizer.step()
-	val_loss = criterion(readout[val_mask, :], labels[val_mask, :])
+	val_loss = criterion(logits[val_mask, :], labels[val_mask, :])
 	validation_loss.append(val_loss.item())
 
 	if epoch >= 3:
@@ -104,11 +108,13 @@ for epoch in range(num_epochs):
 
 print('Finished training!')
 
-test_loss = criterion(readout[test_mask, :], labels[test_mask, :])
+test_loss = criterion(logits[test_mask, :], labels[test_mask, :])
 
 print(f'Test loss {test_loss}')
 
-loss_dict = {'train': train_loss, 'val': val_loss}
-with open(lc_path + 'gcn.pickle', 'wb') as handle:
+loss_dict['train'] = train_loss
+loss_dict['val'] = validation_loss
+loss_dict['test'] = test_loss 
+with open(lc_path + f'{model}.pickle', 'wb') as handle:
 	    pickle.dump(loss_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

@@ -8,41 +8,41 @@ import torch
 from sklearn.preprocessing import StandardScaler
 
 
-def hdf52graph(filename, maximum_distance, n_neighbors = None):
+def hdf52graph(filename, maximum_distance, n_neighbors=None):
 
-	with h5py.File(filename,'r+') as feats: 
+    with h5py.File(filename, "r+") as feats:
 
-		positions = feats['Pos'][:]/1000. # to Mpc
+        positions = feats["Pos"][:] / 1000.0  # to Mpc
 
-		#TODO; FIX PERIODIC BOX
-		#tree = spatial.cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
-		tree = spatial.cKDTree(positions)
+        # TODO; FIX PERIODIC BOX
+        # tree = spatial.cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
+        tree = spatial.cKDTree(positions)
 
-		edgeList = tree.query_pairs(maximum_distance) 
-		#distances, edgeList = tree.query(positions,n_neighbors, distance_upper_bound = maximum_distance) 
+        # TODO; check edge-criterion, e.g.: distance, grav.-force
+        edgeList = tree.query_pairs(maximum_distance)
+        # distances, edgeList = tree.query(positions,n_neighbors, distance_upper_bound = maximum_distance)
 
-		src, dst = zip(*edgeList)
-		G = dgl.DGLGraph()
-		G.add_nodes(len(positions))
-		G.add_edges(src, dst)
+        src, dst = zip(*edgeList)
+        G = dgl.DGLGraph()
+        G.add_nodes(len(positions))
+        G.add_edges(src, dst)
 
-		features = np.column_stack([feats['M200c'][:], 
-							feats['R200c'][:],
-							feats['N_subhalos'][:],
-							feats['VelDisp'][:],
-							feats['Vmax'][:],
-							feats['Spin'][:],
-							feats['Fsub'][:],
-							feats['x_offset'][:]])
+        features = np.column_stack(
+            [
+                feats["M200c"][:],
+                feats["R200c"][:],
+                feats["N_subhalos"][:],
+                feats["VelDisp"][:],
+                feats["Vmax"][:],
+                feats["Spin"][:],
+                feats["Fsub"][:],
+                feats["x_offset"][:],
+            ]
+        )
 
+        G.ndata["feat"] = features
 
-		G.ndata['feat'] = features
+        labels = torch.tensor(feats["Ngals"][:]).float()
+        labels = labels.unsqueeze(-1)  # needed for regression
 
-		labels = torch.tensor(feats['Ngals'][:]).float()
-		labels = labels.unsqueeze(-1) # needed for regression
-
-
-	return labels, G
-
-
-
+    return labels, G

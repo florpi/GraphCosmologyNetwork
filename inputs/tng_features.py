@@ -156,10 +156,10 @@ class HaloCatalog:
             / self.r200c
             / self.v200c
         )
+		self.stellar_mass = self.self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
 
     def compute_x_offset(self):
         """
-
 		Computes relaxadness parameter, which is the offset between the halo center of mass and its most bound particle 
 		position in units of r200c
 		http://arxiv.org/abs/0706.2919

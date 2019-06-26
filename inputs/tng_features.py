@@ -117,6 +117,8 @@ class HaloCatalog:
 		#km/s
 		self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
 
+		self.stellar_mass = self.self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
+
 	def compute_x_offset(self):
 		'''
 

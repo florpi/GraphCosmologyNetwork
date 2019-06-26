@@ -125,38 +125,27 @@ class HaloCatalog:
 
 		Loads features already computed by SUBFIND 
 		+ Bullock spin parameter (http://iopscience.iop.org/article/10.1086/321477/fulltext/52951.text.html)
+        """
 
-		"""
-        self.m200c = self.snapshot.cat["Group_M_Crit200"][self.halo_mass_cut]
-        self.r200c = self.snapshot.cat["Group_R_Crit200"][self.halo_mass_cut]
-        self.total_mass = self.snapshot.cat["GroupMassType"][
-            self.halo_mass_cut, self.dm
-        ]
-        self.halopos = self.snapshot.cat["GroupPos"][self.halo_mass_cut]
-        self.firstsub = (self.snapshot.cat["GroupFirstSub"][self.halo_mass_cut]).astype(
-            int
-        )
-        self.bound_mass = self.snapshot.cat["SubhaloMassType"][self.firstsub, self.dm]
-        self.halocm = self.snapshot.cat["SubhaloCM"][self.firstsub]
-        self.fofcm = self.snapshot.cat["GroupCM"][self.halo_mass_cut]
-        self.vdisp = self.snapshot.cat["SubhaloVelDisp"][self.firstsub]
-        self.vmax = self.snapshot.cat["SubhaloVmax"][self.firstsub]
-        # self.rmax = self.snapshot.cat['SubhaloVmaxRad'][self.firstsub]
-        # self.rhalf = self.snapshot.cat['SubhaloHalfmassRadType'][self.firstsub, self.dm]
-        self.spin_3d = self.snapshot.cat["SubhaloSpin"][self.firstsub, :]
-        self.v200c = (
-            np.sqrt(self.snapshot.const.G * self.m200c / self.r200c / 1000.0)
-            * self.snapshot.const.Mpc
-            / 1000.0
-        )
-        # km/s
-        self.spin = (
-            (np.linalg.norm(self.spin_3d, axis=1) / 3.0)
-            / np.sqrt(2)
-            / self.r200c
-            / self.v200c
-        )
-		self.stellar_mass = self.self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
+		self.m200c = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut]
+		self.r200c = self.snapshot.cat['Group_R_Crit200'][self.halo_mass_cut]
+		self.total_mass = self.snapshot.cat['GroupMassType'][self.halo_mass_cut, self.dm]
+		self.halopos = self.snapshot.cat['GroupPos'][self.halo_mass_cut]
+		self.firstsub = (self.snapshot.cat['GroupFirstSub'][self.halo_mass_cut]).astype(int)
+		self.bound_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.dm]
+		self.halocm = self.snapshot.cat['SubhaloCM'][self.firstsub]
+		self.fofcm = self.snapshot.cat['GroupCM'][self.halo_mass_cut]
+		self.vdisp = self.snapshot.cat['SubhaloVelDisp'][self.firstsub]
+		self.vmax = self.snapshot.cat['SubhaloVmax'][self.firstsub]
+		#self.rmax = self.snapshot.cat['SubhaloVmaxRad'][self.firstsub]
+		#self.rhalf = self.snapshot.cat['SubhaloHalfmassRadType'][self.firstsub, self.dm]
+		self.spin_3d = self.snapshot.cat['SubhaloSpin'][self.firstsub,:]
+		self.v200c = np.sqrt(self.snapshot.const.G * self.m200c / self.r200c/1000.) * self.snapshot.const.Mpc / 1000. 
+		#km/s
+		self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
+
+		self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
+
 
     def compute_x_offset(self):
         """
@@ -306,46 +295,43 @@ class HaloCatalog:
 		Describes the shape of the halo
 		http://arxiv.org/abs/1611.07991
 
-		"""
-        inner = 0.15  # 0.15 *r200c (inner halo)
-        outer = 1.0
-        self.inner_q = np.zeros(self.N_halos)
-        self.inner_s = np.zeros(self.N_halos)
-        self.outer_q = np.zeros(self.N_halos)
-        self.outer_s = np.zeros(self.N_halos)
-        for i in range(self.N_halos):
-            coordinates_halo = self.coordinates[
-                self.group_offset[i] : self.group_offset[i] + self.N_particles[i], :
-            ]
-            distance = (coordinates_halo - self.halopos[i]) / self.r200c[i]
-            self.inner_q[i], self.inner_s[i], _, _ = ellipsoid.ellipsoidfit(
-                distance, self.r200c[i], 0, inner, weighted=True
-            )
-            self.outer_q[i], self.outer_s[i], _, _ = ellipsoid.ellipsoidfit(
-                distance, self.r200c[i], 0, outer, weighted=True
-            )
+	    """	
+		inner = 0.15 # 0.15 *r200c (inner halo)
+		outer = 1.
+		self.inner_q = np.zeros(self.N_halos)
+		self.inner_s = np.zeros(self.N_halos)
+		self.outer_q = np.zeros(self.N_halos)
+		self.outer_s = np.zeros(self.N_halos)
+		for i in range(self.N_halos):
+			coordinates_halo = self.coordinates[self.group_offset[i] : self.group_offset[i] + self.N_particles[i],:]
+			distance = (coordinates_halo - self.halopos[i])/self.r200c[i]
+			self.inner_q[i],self.inner_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
+					self.r200c[i], 0,inner,weighted=True)
+			self.outer_q[i],self.outer_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
+					self.r200c[i], 0,outer,weighted=True)
 
-    def save_features(self):
 
-        output_dir = "/cosma5/data/dp004/dc-cues1/features/"
-        self.output_filename = output_dir + f"halo_features_s{self.snapnum:2d}"
-        print(f"Saving their properties into {self.output_filename}")
+	def save_features(self):
 
-        hf = h5py.File(self.output_filename, "w")
+		output_dir = '/cosma5/data/dp004/dc-cues1/features/'
+		self.output_filename = output_dir + f'halo_features_s{self.snapnum:2d}'
+		print(f'Saving their properties into {self.output_filename}')
 
-        hf.create_dataset("boxsize", data=self.boxsize)
-        hf.create_dataset("Ngals", data=self.N_gals)
-        hf.create_dataset("N_subhalos", data=self.N_subhalos)
-        hf.create_dataset("M200c", data=self.m200c)
-        hf.create_dataset("R200c", data=self.r200c)
-        hf.create_dataset("Pos", data=self.halopos)
-        hf.create_dataset("VelDisp", data=self.vdisp)
-        hf.create_dataset("Vmax", data=self.vmax)
-        hf.create_dataset("Spin", data=self.spin)
-        hf.create_dataset("Fsub", data=self.fsub_unbound)
-        hf.create_dataset("x_offset", data=self.x_offset)
-        hf.close()
+		hf = h5py.File(self.output_filename, 'w')
 
+		hf.create_dataset('boxsize', data = self.boxsize)
+		hf.create_dataset('Ngals', data = self.N_gals)
+		hf.create_dataset('N_subhalos', data= self.N_subhalos)
+		hf.create_dataset('M200c', data = self.m200c)
+		hf.create_dataset('R200c', data = self.r200c)
+		hf.create_dataset('Pos', data = self.halopos)
+		hf.create_dataset('VelDisp', data = self.vdisp)
+		hf.create_dataset('Vmax', data = self.vmax)
+		hf.create_dataset('Spin', data = self.spin)
+		hf.create_dataset('Fsub', data = self.fsub_unbound)
+		hf.create_dataset('x_offset', data = self.x_offset)
+		hf.create_dataset('stellar_mass', data = self.stellar_mass)
+		hf.close()
 
 if __name__ == "__main__":
 

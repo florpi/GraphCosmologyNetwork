@@ -38,6 +38,7 @@ std_features_test = scaler.transform(test_features)
 
 
 
+'''
 # Number of trees in random forest
 n_estimators = [int(x) for x in np.linspace(start = 200, stop = 1000, num = 10)]
 # Number of features to consider at every split
@@ -80,3 +81,4 @@ random_mse =  mean_squared_error(test_labels, best_random.predict(test_features)
 
 
 print(f'Best random search found a test mse of {random_mse}')
+'''

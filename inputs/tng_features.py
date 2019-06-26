@@ -117,7 +117,7 @@ class HaloCatalog:
 		#km/s
 		self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
 
-		self.stellar_mass = self.self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
+		self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
 
 	def compute_x_offset(self):
 		'''
@@ -281,6 +281,7 @@ class HaloCatalog:
 		hf.create_dataset('Spin', data = self.spin)
 		hf.create_dataset('Fsub', data = self.fsub_unbound)
 		hf.create_dataset('x_offset', data = self.x_offset)
+		hf.create_dataset('stellar_mass', data = self.stellar_mass)
 		hf.close()
 
 

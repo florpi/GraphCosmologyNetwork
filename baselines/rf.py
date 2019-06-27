@@ -4,10 +4,12 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_log_error, mean_squared_error, r2_score
+
 
 hdf5_filename = "/cosma5/data/dp004/dc-cues1/features/halo_features_s99"
 with h5py.File(hdf5_filename, "r+") as feats:
+    print(feats["boxsize"].value)
 
     features = np.column_stack(
         [
@@ -21,9 +23,11 @@ with h5py.File(hdf5_filename, "r+") as feats:
             feats["x_offset"][:],
         ]
     )
+    
 
-    labels = feats["Ngals"][:]
+    labels = np.log10(feats["stellar_mass"][:] + 1 )
 
+'''
 train_idx, test_idx, val_idx = split.train_test_val_split(labels.shape[0])
 
 train_features = np.concatenate((features[train_idx, :], features[val_idx, :]))
@@ -41,11 +45,11 @@ std_features_test = scaler.transform(test_features)
 
 
 # Number of trees in random forest
-n_estimators = [int(x) for x in np.linspace(start=200, stop=1000, num=10)]
+n_estimators = [int(x) for x in np.linspace(start=200, stop=1000, num=5)]
 # Number of features to consider at every split
 max_features = ["auto", "sqrt"]
 # Maximum number of levels in tree
-max_depth = [int(x) for x in np.linspace(10, 110, num=5)]
+max_depth = [int(x) for x in np.linspace(10, 80, num=5)]
 max_depth.append(None)
 # Minimum number of samples required to split a node
 min_samples_split = [2, 5, 10]
@@ -88,7 +92,10 @@ rf_random.fit(std_features_train, train_labels)
 
 best_random = rf_random.best_estimator_
 
-random_mse = mean_squared_error(test_labels, best_random.predict(test_features))
+random_mse = mean_squared_error(test_labels, best_random.predict(std_features_test))
+random_rs2 = r2_score(test_labels, best_random.predict(std_features_test))
 
 
 print(f"Best random search found a test mse of {random_mse}")
+print(f"Best random search found a test rs2 of {random_rs2}")
+'''

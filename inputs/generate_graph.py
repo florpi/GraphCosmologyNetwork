@@ -14,9 +14,7 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
 
         positions = feats["Pos"][:] / 1000.0  # to Mpc
 
-        # TODO; FIX PERIODIC BOX
-        # tree = spatial.cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
-        tree = spatial.cKDTree(positions)
+        tree = spatial.cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
 
         # TODO; check edge-criterion, e.g.: distance, grav.-force
         edgeList = tree.query_pairs(maximum_distance)
@@ -46,3 +44,10 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
         labels = labels.unsqueeze(-1)  # needed for regression
 
     return labels, G
+
+
+if __name__ == '__main__':
+
+    hdf5_filename = "/cosma5/data/dp004/dc-cues1/features/halo_features_s99"
+
+    l, G = hdf52graph(hdf5_filename, 5.)

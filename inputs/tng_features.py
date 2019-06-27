@@ -11,11 +11,11 @@ import h5py
 class HaloCatalog:
     def __init__(self, snapnum=99):
         """
-		Class to read halo catalogs from simulation
+        Class to read halo catalogs from simulation
 
-		snapnum: snapshot number to read
+        snapnum: snapshot number to read
 
-		"""
+        """
 
         # Read snapshot
 
@@ -23,7 +23,7 @@ class HaloCatalog:
         self.snapnum = snapnum
         self.snapshot = read_hdf5.snapshot(snapnum, h5_dir)
 
-        self.boxsize = self.snapshot.header.boxsize  # kpc
+        self.boxsize = self.snapshot.header.boxsize / self.snapshot.header.hubble # kpc
 
         # Useful definitions
         self.dm = 1
@@ -90,13 +90,13 @@ class HaloCatalog:
     def Number_of_galaxies(self):
         """
 
-		Given the halo catalog computes the stellar mass of a given halo, and its number of galaxies. 
-		The number of galaxies is defined as the number of subhalos that halo has over a given stellar mass 
-		defined inside the class
-		Outputs: N_gals, number of galaxies belonging to the halo
-				M_stars, mass of the stellar component bound to the halo
+        Given the halo catalog computes the stellar mass of a given halo, and its number of galaxies. 
+        The number of galaxies is defined as the number of subhalos that halo has over a given stellar mass 
+        defined inside the class
+        Outputs: N_gals, number of galaxies belonging to the halo
+                M_stars, mass of the stellar component bound to the halo
 
-		"""
+        """
         # Subhaloes defined as galaxies with a stellar mass larger than the threshold
         N_gals = np.zeros((self.N_halos), dtype=np.int)
         M_stars = np.zeros((self.N_halos), dtype=np.int)
@@ -123,59 +123,59 @@ class HaloCatalog:
     def load_inmidiate_features(self):
         """
 
-		Loads features already computed by SUBFIND 
-		+ Bullock spin parameter (http://iopscience.iop.org/article/10.1086/321477/fulltext/52951.text.html)
+        Loads features already computed by SUBFIND 
+        + Bullock spin parameter (http://iopscience.iop.org/article/10.1086/321477/fulltext/52951.text.html)
         """
 
-		self.m200c = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut]
-		self.r200c = self.snapshot.cat['Group_R_Crit200'][self.halo_mass_cut]
-		self.total_mass = self.snapshot.cat['GroupMassType'][self.halo_mass_cut, self.dm]
-		self.halopos = self.snapshot.cat['GroupPos'][self.halo_mass_cut]
-		self.firstsub = (self.snapshot.cat['GroupFirstSub'][self.halo_mass_cut]).astype(int)
-		self.bound_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.dm]
-		self.halocm = self.snapshot.cat['SubhaloCM'][self.firstsub]
-		self.fofcm = self.snapshot.cat['GroupCM'][self.halo_mass_cut]
-		self.vdisp = self.snapshot.cat['SubhaloVelDisp'][self.firstsub]
-		self.vmax = self.snapshot.cat['SubhaloVmax'][self.firstsub]
-		#self.rmax = self.snapshot.cat['SubhaloVmaxRad'][self.firstsub]
-		#self.rhalf = self.snapshot.cat['SubhaloHalfmassRadType'][self.firstsub, self.dm]
-		self.spin_3d = self.snapshot.cat['SubhaloSpin'][self.firstsub,:]
-		self.v200c = np.sqrt(self.snapshot.const.G * self.m200c / self.r200c/1000.) * self.snapshot.const.Mpc / 1000. 
-		#km/s
-		self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
+        self.m200c = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut]
+        self.r200c = self.snapshot.cat['Group_R_Crit200'][self.halo_mass_cut]
+        self.total_mass = self.snapshot.cat['GroupMassType'][self.halo_mass_cut, self.dm]
+        self.halopos = self.snapshot.cat['GroupPos'][self.halo_mass_cut].clip(min = 0)
+        self.firstsub = (self.snapshot.cat['GroupFirstSub'][self.halo_mass_cut]).astype(int)
+        self.bound_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.dm]
+        self.halocm = self.snapshot.cat['SubhaloCM'][self.firstsub]
+        self.fofcm = self.snapshot.cat['GroupCM'][self.halo_mass_cut]
+        self.vdisp = self.snapshot.cat['SubhaloVelDisp'][self.firstsub]
+        self.vmax = self.snapshot.cat['SubhaloVmax'][self.firstsub]
+        #self.rmax = self.snapshot.cat['SubhaloVmaxRad'][self.firstsub]
+        #self.rhalf = self.snapshot.cat['SubhaloHalfmassRadType'][self.firstsub, self.dm]
+        self.spin_3d = self.snapshot.cat['SubhaloSpin'][self.firstsub,:]
+        self.v200c = np.sqrt(self.snapshot.const.G * self.m200c / self.r200c/1000.) * self.snapshot.const.Mpc / 1000. 
+        #km/s
+        self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
 
-		self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
+        self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
 
 
     def compute_x_offset(self):
         """
-		Computes relaxadness parameter, which is the offset between the halo center of mass and its most bound particle 
-		position in units of r200c
-		http://arxiv.org/abs/0706.2919
+        Computes relaxadness parameter, which is the offset between the halo center of mass and its most bound particle 
+        position in units of r200c
+        http://arxiv.org/abs/0706.2919
 
-		"""
+        """
 
         self.x_offset = self.periodic_distance(self.fofcm, self.halopos) / self.r200c
 
     def compute_fsub_unbound(self):
         """
 
-		Computes another measure of how relaxed is the halo, defined as the ration between mass bound to the halo and 
-		mass belonging to its FoF group
+        Computes another measure of how relaxed is the halo, defined as the ration between mass bound to the halo and 
+        mass belonging to its FoF group
 
-		"""
+        """
 
         self.fsub_unbound = 1.0 - self.bound_mass / self.total_mass
 
     def Concentration_from_nfw(self):
         """
 
-		Fit NFW profile to the halo density profile of the dark matter particles to obtain r200c/rs. 
-		Procedure defined in http://arxiv.org/abs/1104.5130.
-		Outputs: concentration, defined as r200c/rs
-				chi2_concentration, chi2 that determines goodness of fit
+        Fit NFW profile to the halo density profile of the dark matter particles to obtain r200c/rs. 
+        Procedure defined in http://arxiv.org/abs/1104.5130.
+        Outputs: concentration, defined as r200c/rs
+                chi2_concentration, chi2 that determines goodness of fit
 
-		"""
+        """
         # fit an NFW profile to the halo density profile from particle data to obtain r200c/rs
         def nfw(r, rho, c):
             return np.log10(rho / (r * c * (1.0 + r * c) ** 2))
@@ -220,10 +220,10 @@ class HaloCatalog:
     def Environment_haas(self, f):
         """
 
-		Measure of environment that is not correlated with host halo mass http://arxiv.org/abs/1103.0547.
-		Outputs: haas_env, distance to the closest neighbor with a mass larger than f * m200c, divided by its r200c 
+        Measure of environment that is not correlated with host halo mass http://arxiv.org/abs/1103.0547.
+        Outputs: haas_env, distance to the closest neighbor with a mass larger than f * m200c, divided by its r200c 
 
-		"""
+        """
 
         haas_env = np.zeros(self.N_halos)
 
@@ -254,10 +254,10 @@ class HaloCatalog:
     def total_fsub(self):
         """
 
-		Fraction of mass bound to substructure compared to the halo mass.
-		Outputs: fsub, ratio of M_fof/M_bound
+        Fraction of mass bound to substructure compared to the halo mass.
+        Outputs: fsub, ratio of M_fof/M_bound
 
-		"""
+        """
         fsub = np.zeros((self.N_halos))
         for i in range(self.N_halos):
             fsub[i] = (
@@ -277,11 +277,11 @@ class HaloCatalog:
     def periodic_distance(self, a, b):
         """
 
-		Computes distance between vectors a and b in a periodic box
-		Inputs: a and b, 3d vectors
-		Outputs: dists, distance once periodic boundary conditions have been applied
+        Computes distance between vectors a and b in a periodic box
+        Inputs: a and b, 3d vectors
+        Outputs: dists, distance once periodic boundary conditions have been applied
 
-		"""
+        """
 
         bounds = self.boxsize * np.ones(3)
 
@@ -292,46 +292,46 @@ class HaloCatalog:
     def halo_shape(self):
         """
 
-		Describes the shape of the halo
-		http://arxiv.org/abs/1611.07991
+        Describes the shape of the halo
+        http://arxiv.org/abs/1611.07991
 
-	    """	
-		inner = 0.15 # 0.15 *r200c (inner halo)
-		outer = 1.
-		self.inner_q = np.zeros(self.N_halos)
-		self.inner_s = np.zeros(self.N_halos)
-		self.outer_q = np.zeros(self.N_halos)
-		self.outer_s = np.zeros(self.N_halos)
-		for i in range(self.N_halos):
-			coordinates_halo = self.coordinates[self.group_offset[i] : self.group_offset[i] + self.N_particles[i],:]
-			distance = (coordinates_halo - self.halopos[i])/self.r200c[i]
-			self.inner_q[i],self.inner_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
-					self.r200c[i], 0,inner,weighted=True)
-			self.outer_q[i],self.outer_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
-					self.r200c[i], 0,outer,weighted=True)
+        """ 
+        inner = 0.15 # 0.15 *r200c (inner halo)
+        outer = 1.
+        self.inner_q = np.zeros(self.N_halos)
+        self.inner_s = np.zeros(self.N_halos)
+        self.outer_q = np.zeros(self.N_halos)
+        self.outer_s = np.zeros(self.N_halos)
+        for i in range(self.N_halos):
+            coordinates_halo = self.coordinates[self.group_offset[i] : self.group_offset[i] + self.N_particles[i],:]
+            distance = (coordinates_halo - self.halopos[i])/self.r200c[i]
+            self.inner_q[i],self.inner_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
+                    self.r200c[i], 0,inner,weighted=True)
+            self.outer_q[i],self.outer_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
+                    self.r200c[i], 0,outer,weighted=True)
 
 
-	def save_features(self):
+    def save_features(self):
 
-		output_dir = '/cosma5/data/dp004/dc-cues1/features/'
-		self.output_filename = output_dir + f'halo_features_s{self.snapnum:2d}'
-		print(f'Saving their properties into {self.output_filename}')
+        output_dir = '/cosma5/data/dp004/dc-cues1/features/'
+        self.output_filename = output_dir + f'halo_features_s{self.snapnum:2d}'
+        print(f'Saving their properties into {self.output_filename}')
 
-		hf = h5py.File(self.output_filename, 'w')
+        hf = h5py.File(self.output_filename, 'w')
 
-		hf.create_dataset('boxsize', data = self.boxsize)
-		hf.create_dataset('Ngals', data = self.N_gals)
-		hf.create_dataset('N_subhalos', data= self.N_subhalos)
-		hf.create_dataset('M200c', data = self.m200c)
-		hf.create_dataset('R200c', data = self.r200c)
-		hf.create_dataset('Pos', data = self.halopos)
-		hf.create_dataset('VelDisp', data = self.vdisp)
-		hf.create_dataset('Vmax', data = self.vmax)
-		hf.create_dataset('Spin', data = self.spin)
-		hf.create_dataset('Fsub', data = self.fsub_unbound)
-		hf.create_dataset('x_offset', data = self.x_offset)
-		hf.create_dataset('stellar_mass', data = self.stellar_mass)
-		hf.close()
+        hf.create_dataset('boxsize', data = self.boxsize)
+        hf.create_dataset('Ngals', data = self.N_gals)
+        hf.create_dataset('N_subhalos', data= self.N_subhalos)
+        hf.create_dataset('M200c', data = self.m200c)
+        hf.create_dataset('R200c', data = self.r200c)
+        hf.create_dataset('Pos', data = self.halopos)
+        hf.create_dataset('VelDisp', data = self.vdisp)
+        hf.create_dataset('Vmax', data = self.vmax)
+        hf.create_dataset('Spin', data = self.spin)
+        hf.create_dataset('Fsub', data = self.fsub_unbound)
+        hf.create_dataset('x_offset', data = self.x_offset)
+        hf.create_dataset('stellar_mass', data = self.stellar_mass)
+        hf.close()
 
 if __name__ == "__main__":
 

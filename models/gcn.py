@@ -40,25 +40,29 @@ class GCNLayer(nn.Module):
 
 # Define a 2-layer GCN model
 class GCN(nn.Module):
-    def __init__(self, in_feats, conv_hidden_size, embedding_size, readout_hidden_size):
+    def __init__(self, in_feats, conv_hidden_size, embedding_size, readout_hidden_size, num_classes = 1):
         super(GCN, self).__init__()
         self.gcn1 = GCNLayer(in_feats, conv_hidden_size)
-        self.gcn2 = GCNLayer(conv_hidden_size, embedding_size)
+        #self.gcn2 = GCNLayer(conv_hidden_size, embedding_size)
 
         self.fcn1 = nn.Linear(embedding_size, readout_hidden_size)
-        self.fcn2 = nn.Linear(readout_hidden_size, readout_hidden_size)
-        self.fcn3 = nn.Linear(readout_hidden_size, 1)
+        #self.fcn2 = nn.Linear(readout_hidden_size, readout_hidden_size)
+        self.fcn2 = nn.Linear(readout_hidden_size, num_classes)
 
     def forward(self, g, inputs):
         h = self.gcn1(g, inputs)
         h = torch.relu(h)
-        h = self.gcn2(g, h)
-        h = torch.relu(h)
+        #h = self.gcn2(g, h)
+        #h = torch.relu(h)
+
+        # concatenate embedding and features of the node
+        #h = torch.cat([h, inputs], dim = -1)
+        h += inputs
 
         # Readout layers:
         h = self.fcn1(h)
         h = F.relu(h)
         h = self.fcn2(h)
-        h = F.relu(h)
-        h = self.fcn3(h)
+        #h = F.relu(h)
+        #h = self.fcn3(h)
         return h

@@ -6,10 +6,10 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import mean_squared_log_error, mean_squared_error, r2_score
 
+print("Predicting stellar mass")
 
 hdf5_filename = "/cosma5/data/dp004/dc-cues1/features/halo_features_s99"
 with h5py.File(hdf5_filename, "r+") as feats:
-    print(feats["boxsize"].value)
 
     features = np.column_stack(
         [
@@ -26,8 +26,8 @@ with h5py.File(hdf5_filename, "r+") as feats:
     
 
     labels = np.log10(feats["stellar_mass"][:] + 1 )
+	#labels = feats["N_gals"][:]
 
-'''
 train_idx, test_idx, val_idx = split.train_test_val_split(labels.shape[0])
 
 train_features = np.concatenate((features[train_idx, :], features[val_idx, :]))
@@ -98,4 +98,3 @@ random_rs2 = r2_score(test_labels, best_random.predict(std_features_test))
 
 print(f"Best random search found a test mse of {random_mse}")
 print(f"Best random search found a test rs2 of {random_rs2}")
-'''

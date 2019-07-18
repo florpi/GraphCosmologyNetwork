@@ -5,18 +5,21 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, confusion_matrix, precision_recall_fscore_support
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 # **************************** DEFINE HYPERPARAMS ***********************
 learning_rate = 1.e-3
-num_epochs = 100
+num_epochs = 100 
 hidden_size = 512 
+n_classes = 2
+
 loss_dict = {
+
 		'learning_rate': learning_rate,
-		'hidden_size': conv_hidden_size,
+		'hidden_size': hidden_size,
 		}
 
 
@@ -37,6 +40,8 @@ with h5py.File(hdf5_filename,'r+') as feats:
 
 	labels = feats['Ngals'][:]
 
+
+
 n_features = features.shape[-1]
 train_idx, test_idx, val_idx = split.train_test_val_split(labels.shape[0])
 
@@ -44,33 +49,29 @@ train_mask = torch.Tensor(train_idx).long()
 test_mask = torch.Tensor(test_idx).long()
 val_mask = torch.Tensor(val_idx).long()
 
-train_features = features[train_idx,:]
-train_labels = labels[train_idx] 
-val_features = features[val_idx,:]
-val_labels = labels[val_idx]
-test_features = features[test_idx,:]
-test_labels = labels[test_idx]
-
 scaler = StandardScaler()
 
-scaler.fit(train_features)
+scaler.fit(features[train_idx, : ])
 
 # Standarize features based on training set statistics
 std_features = scaler.transform(features)
 
 std_features = torch.tensor(std_features).float()
-labels = torch.tensor(labels).float().unsqueeze(-1)
+
+labels = labels > 0
+labels = torch.tensor(labels).long()
+
 class Net(nn.Module):
 		def __init__(self ):
 				super(Net, self).__init__()
 				self.fc1 = nn.Linear(n_features, hidden_size) 
-				self.fc2 = nn.Linear(hidden_size, hidden_size)
-				self.fc3 = nn.Linear(hidden_size, 1)
+				#self.fc2 = nn.Linear(hidden_size, hidden_size)
+				self.fc3 = nn.Linear(hidden_size, n_classes)
 
 
 		def forward(self, x):
 				x = F.relu(self.fc1(x))
-				x = F.relu(self.fc2(x))
+				#x = F.relu(self.fc2(x))
 				x = self.fc3(x)
 				return x
 
@@ -84,16 +85,16 @@ for epoch in range(num_epochs):
 
 	logits = net(std_features)
 
-	criterion = nn.MSELoss()
+	criterion = nn.CrossEntropyLoss()
 
 
-	loss = criterion(logits[train_mask, :], labels[train_mask, :])
+	loss = criterion(logits[train_mask, :], labels[train_mask, ...])
 	train_loss.append(loss.item())
 
 	optimizer.zero_grad()
 	loss.backward()
 	optimizer.step()
-	val_loss = criterion(logits[val_mask, :], labels[val_mask, :])
+	val_loss = criterion(logits[val_mask, :], labels[val_mask, ...])
 	validation_loss.append(val_loss.item())
 
 
@@ -101,11 +102,29 @@ for epoch in range(num_epochs):
 
 print('Finished training!')
 
-test_loss = criterion(logits[test_mask, :], labels[test_mask, :])
+test_loss = criterion(logits[test_mask, :], labels[test_mask, ...])
 
 print(f'Test loss {test_loss}')
+test_pred = np.argmax(net(std_features[test_mask, :]).detach().numpy(), axis = -1)
+cm = confusion_matrix(labels[test_mask,...], test_pred) 
 
-loss_dict = {'train': train_loss, 'val': validation_loss}
+print(cm)
+precision, recall, fscore, support = precision_recall_fscore_support(labels[test_mask,...], test_pred) 
+
+print(f'Precision luminuous = {precision[0]:.4f}')
+print(f'Precision dark = {precision[1]:.4f}')
+print(f'Recall luminuous = {recall[0]:.4f}')
+print(f'Recall dark = {recall[1]:.4f}')
+print(f'Fscore luminuous = {fscore[0]:.4f}')
+print(f'Fscore dark = {fscore[1]:.4f}')
+
+
+
+loss_dict["train"] = train_loss
+loss_dict["val"] = validation_loss
+loss_dict["test"] = test_loss
 with open(lc_path + 'fcn.pickle', 'wb') as handle:
 	    pickle.dump(loss_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
 

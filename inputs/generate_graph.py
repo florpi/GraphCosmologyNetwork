@@ -40,8 +40,11 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
 
         G.ndata["feat"] = features
 
-        labels = torch.tensor(feats["Ngals"][:]).float()
-        labels = labels.unsqueeze(-1)  # needed for regression
+        #labels = torch.tensor(feats["Ngals"][:]).float()
+        #labels = labels.unsqueeze(-1)  # needed for regression
+        labels = feats["Ngals"][:]
+        labels = labels > 0
+        labels = torch.tensor(labels).long()
 
     return labels, G
 

@@ -74,7 +74,7 @@ class GAT(nn.Module):
         self.layer2 = MultiHeadGATLayer(g, hidden_dim * num_heads, embedding_size, 1)
 
         self.fcn1 = nn.Linear(embedding_size, readout_hidden_size)
-        self.fcn2 = nn.Linear(readout_hidden_size, readout_hidden_size)
+        #self.fcn2 = nn.Linear(readout_hidden_size, readout_hidden_size)
         self.fcn3 = nn.Linear(readout_hidden_size, 1)
 
     def forward(self, h):
@@ -85,7 +85,7 @@ class GAT(nn.Module):
         # Readout layers:
         h = self.fcn1(h)
         h = F.relu(h)
-        h = self.fcn2(h)
-        h = F.relu(h)
+        #h = self.fcn2(h)
+        #h = F.relu(h)
         h = self.fcn3(h)
         return h

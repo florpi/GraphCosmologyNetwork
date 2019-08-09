@@ -1,6 +1,7 @@
 import h5py
 import pickle
 from GNN.inputs import split
+from GNN.utils.cm import plot_confusion_matrix
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
@@ -9,10 +10,11 @@ from sklearn.metrics import mean_squared_error, confusion_matrix, precision_reca
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 # **************************** DEFINE HYPERPARAMS ***********************
 learning_rate = 1.e-3
-num_epochs = 100 
+num_epochs =  100 
 hidden_size = 512 
 n_classes = 2
 
@@ -106,9 +108,12 @@ test_loss = criterion(logits[test_mask, :], labels[test_mask, ...])
 
 print(f'Test loss {test_loss}')
 test_pred = np.argmax(net(std_features[test_mask, :]).detach().numpy(), axis = -1)
-cm = confusion_matrix(labels[test_mask,...], test_pred) 
+#cm = confusion_matrix(labels[test_mask,...], test_pred) 
 
-print(cm)
+#print(cm)
+plot_confusion_matrix(labels[test_mask,...], test_pred, classes = ['Dark', 'Luminous'], normalize = True)
+plt.savefig('/cosma/home/dp004/dc-cues1/GNN/outputs/cm/fcn.png')
+
 precision, recall, fscore, support = precision_recall_fscore_support(labels[test_mask,...], test_pred) 
 
 print(f'Precision luminuous = {precision[0]:.4f}')

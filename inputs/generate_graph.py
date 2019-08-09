@@ -47,6 +47,8 @@ def test_reformat(particular_edge):
 
 		assert distances[particular_edge] == np.linalg.norm(positions[origin] - positions[dest])
 
+		assert np.sum(np.array(distances) > maximum_distance) == 0
+
 
 
 
@@ -86,8 +88,8 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
 		)
 
 		G.ndata["feat"] = features
-		#G.edata["dist"] = torch.tensor(np.zeros((len(edgeList))))
-		G.edata["dist"] = torch.randn((G.number_of_edges(), 1))
+		G.edata["dist"] = torch.tensor(distances).unsqueeze(-1)
+		#G.edata["dist"] = torch.randn((G.number_of_edges(), 1))
 
 		#labels = torch.tensor(feats["Ngals"][:]).float()
 		#labels = labels.unsqueeze(-1)	# needed for regression

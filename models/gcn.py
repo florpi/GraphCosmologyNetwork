@@ -9,7 +9,7 @@ import torch.nn.functional as F
 def gcn_message(edges):
 	# The argument is a batch of edges.
 	# This computes a (batch of) message called 'msg' using the source node's feature 'h'.
-	return {"msg": edges.src["h"] * edges.data["dist"]}
+	return {"msg": edges.src["h"] * 1./edges.data["dist"]**2}
 
 
 def gcn_reduce(nodes):

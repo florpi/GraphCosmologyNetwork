@@ -88,7 +88,8 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
 		)
 
 		G.ndata["feat"] = features
-		G.edata["dist"] = torch.tensor(distances).unsqueeze(-1)
+		inv_dist_sq = 1./np.array(distances)
+		G.edata["inv_dist_sq"] = torch.tensor(inv_dist_sq).unsqueeze(-1).float()
 		#G.edata["dist"] = torch.randn((G.number_of_edges(), 1))
 
 		#labels = torch.tensor(feats["Ngals"][:]).float()

@@ -9,12 +9,13 @@ import torch.nn.functional as F
 def gcn_message(edges):
 	# The argument is a batch of edges.
 	# This computes a (batch of) message called 'msg' using the source node's feature 'h'.
-	return {"msg": edges.src["h"] * 1./edges.data["dist"]**2}
+	return {"msg": edges.src["h"] * edges.data["inv_dist_sq"]}
 
 
 def gcn_reduce(nodes):
 	# The argument is a batch of nodes.
 	# This computes the new 'h' features by summing received 'msg' in each node's mailbox.
+	# TODO: Check itself is there !
 	return {"h": torch.sum(nodes.mailbox["msg"], dim=1)}
 
 

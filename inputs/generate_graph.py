@@ -4,19 +4,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import networkx as nx
-from scipy import spatial
+from scipy.spatial import cKDTree
 import torch
-from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import KDTree
 
 
 def reformat_edges_distances(edges, distances):
+    # convert from scipy tree structure to sklearn tree structure
+    empties = [np.where(dist != np.inf)[0] for dist in distances]
+    distances = np.asarray([distances[i][empties[i]] for i in range(len(distances))])
+    edges = np.asarray([np.sort(edges[i][empties[i]]) for i in range(len(edges))])
 
-	idx_dst_pairs = [(idx, dest) for idx, destination in enumerate(edges) \
-			for dest in destination if idx != dest] # do not include (a, a) pairs
+    # convert from sklearn tree structure to dgl structure
+	idx_dst_pairs = [(idx, dest) for idx, destination in enumerate(edges) for dest in destination if idx != dest] # do not include (a, a) pairs
 
-	distances_per_edge = [distances[idx][np.where(edges[idx] == destination)][0] \
-			for idx, destination in idx_dst_pairs]
+	distances_per_edge = [distances[idx][np.where(edges[idx] == destination)][0] for idx, destination in idx_dst_pairs]
 
 	return idx_dst_pairs, distances_per_edge
 
@@ -30,17 +31,10 @@ def test_reformat(particular_edge):
 
 	with h5py.File(filename, "r+") as feats:
 
-
 		positions = feats["Pos"][:] / 1000.0  # to Mpc
 
-		#tree = spatial.cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
-		sktree = KDTree(positions)
-		# TODO: periodic boundary conditions
-
-
-		edges, distances = sktree.query_radius(positions, r = maximum_distance,
-				                           return_distance = True)
-
+		tree = cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
+        distances, edges = tree.query(X, k=100, distance_upper_bound=maximum_distance)
 		edges, distances = reformat_edges_distances(edges, distances)
 
 		origin, dest = list(edges)[particular_edge]
@@ -58,14 +52,8 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
 
 		positions = feats["Pos"][:] / 1000.0  # to Mpc
 
-		#tree = spatial.cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
-		sktree = KDTree(positions)
-		# TODO: periodic boundary conditions
-
-
-		edges, distances = sktree.query_radius(positions, r = maximum_distance,
-				                           return_distance = True)
-
+		tree = cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
+        distances, edges = tree.query(X, k=100, distance_upper_bound=maximum_distance)
 		edges, distances = reformat_edges_distances(edges, distances)
 
 		src, dst = zip(*edges)

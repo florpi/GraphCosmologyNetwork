@@ -7,17 +7,32 @@ import networkx as nx
 from scipy.spatial import cKDTree
 import torch
 
+def periodic_distance(a, b, boxsize):
+	'''
+	Computes distance between vectors a and b in a periodic box
+	Inputs: a and b, 3d vectors
+	Outputs: dists, distance once periodic boundary conditions have been applied
+	'''
+
+	bounds = boxsize * np.ones(3)
+
+	min_dists = np.min(np.dstack(((a - b) % bounds, (b - a) % bounds)), axis = 2)
+	dists = np.sqrt(np.sum(min_dists ** 2, axis = 1))
+	return dists
+
 
 def reformat_edges_distances(edges, distances):
-    # convert from scipy tree structure to sklearn tree structure
-    empties = [np.where(dist != np.inf)[0] for dist in distances]
-    distances = np.asarray([distances[i][empties[i]] for i in range(len(distances))])
-    edges = np.asarray([np.sort(edges[i][empties[i]]) for i in range(len(edges))])
+	# convert from scipy tree structure to sklearn tree structure
+	empties = [np.where(dist != np.inf)[0] for dist in distances]
+	distances = np.asarray([distances[i][empties[i]] for i in range(len(distances))])
+	edges = np.asarray([edges[i][empties[i]] for i in range(len(edges))])
 
-    # convert from sklearn tree structure to dgl structure
+	# convert from sklearn tree structure to dgl structure
 	idx_dst_pairs = [(idx, dest) for idx, destination in enumerate(edges) for dest in destination if idx != dest] # do not include (a, a) pairs
 
+
 	distances_per_edge = [distances[idx][np.where(edges[idx] == destination)][0] for idx, destination in idx_dst_pairs]
+
 
 	return idx_dst_pairs, distances_per_edge
 
@@ -31,15 +46,17 @@ def test_reformat(particular_edge):
 
 	with h5py.File(filename, "r+") as feats:
 
-		positions = feats["Pos"][:] / 1000.0  # to Mpc
+		positions = feats["Pos"][:].clip(min = 0.) / 1000.0  # to Mpc
 
 		tree = cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
-        distances, edges = tree.query(X, k=100, distance_upper_bound=maximum_distance)
+		distances, edges = tree.query(positions, k=100, distance_upper_bound=maximum_distance)
+
 		edges, distances = reformat_edges_distances(edges, distances)
 
-		origin, dest = list(edges)[particular_edge]
 
-		assert distances[particular_edge] == np.linalg.norm(positions[origin] - positions[dest])
+		origin, dest = edges[particular_edge]
+
+		assert distances[particular_edge] == periodic_distance(positions[origin], positions[dest], feats['boxsize'].value/1000.)
 
 		assert np.sum(np.array(distances) > maximum_distance) == 0
 
@@ -50,10 +67,10 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
 
 	with h5py.File(filename, "r+") as feats:
 
-		positions = feats["Pos"][:] / 1000.0  # to Mpc
+		positions = feats["Pos"][:].clip(min = 0.) / 1000.0  # to Mpc
 
 		tree = cKDTree(positions, boxsize = feats['boxsize'].value/1000.)
-        distances, edges = tree.query(X, k=100, distance_upper_bound=maximum_distance)
+		distances, edges = tree.query(positions, k=100, distance_upper_bound=maximum_distance)
 		edges, distances = reformat_edges_distances(edges, distances)
 
 		src, dst = zip(*edges)
@@ -76,8 +93,8 @@ def hdf52graph(filename, maximum_distance, n_neighbors=None):
 		)
 
 		G.ndata["feat"] = features
-		inv_dist_sq = 1./np.array(distances)
-		G.edata["inv_dist_sq"] = torch.tensor(inv_dist_sq).unsqueeze(-1).float()
+		inv_dist = 1./np.array(distances)
+		G.edata["inv_dist"] = torch.tensor(inv_dist).unsqueeze(-1).float()
 		#G.edata["dist"] = torch.randn((G.number_of_edges(), 1))
 
 		#labels = torch.tensor(feats["Ngals"][:]).float()

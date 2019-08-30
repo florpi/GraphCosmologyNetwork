@@ -9,14 +9,21 @@ import torch.nn.functional as F
 def gcn_message(edges):
 	# The argument is a batch of edges.
 	# This computes a (batch of) message called 'msg' using the source node's feature 'h'.
-	return {"msg": edges.src["h"] * edges.data["inv_dist_sq"]}
+	print(edges.src["h"].shape)
+	print(edges.src["h"])
+	return {"msg": edges.src["h"] }#* edges.data["inv_dist"]}
 
 
 def gcn_reduce(nodes):
 	# The argument is a batch of nodes.
 	# This computes the new 'h' features by summing received 'msg' in each node's mailbox.
 	# TODO: Check itself is there !
-	return {"h": torch.sum(nodes.mailbox["msg"], dim=1)}
+	print('mailbox')
+	print(nodes.mailbox["msg"].shape)
+	print(nodes.mailbox["msg"])
+	print(torch.sum(nodes.mailbox["msg"], dim = -1).shape)
+	print(torch.sum(nodes.mailbox["msg"], dim = -1))
+	return {"h": torch.sum(nodes.mailbox["msg"], dim=-1)}
 
 
 # Define the GCNLayer module
@@ -47,12 +54,12 @@ class GCN(nn.Module):
 		#self.gcn2 = GCNLayer(conv_hidden_size, embedding_size)
 
 		self.fcn1 = nn.Linear(embedding_size, readout_hidden_size)
-		#self.fcn2 = nn.Linear(readout_hidden_size, readout_hidden_size)
 		self.fcn2 = nn.Linear(readout_hidden_size, num_classes)
 
 	def forward(self, g, inputs):
+
 		h = self.gcn1(g, inputs)
-		h = torch.sigmoid(h)
+		h = torch.relu(h)
 		#h = self.gcn2(g, h)
 		#h = torch.relu(h)
 
@@ -64,6 +71,4 @@ class GCN(nn.Module):
 		h = self.fcn1(h)
 		h = F.relu(h)
 		h = self.fcn2(h)
-		#h = F.relu(h)
-		#h = self.fcn3(h)
 		return h

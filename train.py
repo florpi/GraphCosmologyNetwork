@@ -96,7 +96,7 @@ def get_arguments() -> argparse.Namespace:
         default=1e-4,
         type=float,
         metavar="LR",
-        help="Initial learning rate. Default: 3e-4.",
+        help="Initial learning rate. Default: 1e-4.",
     )
     parser.add_argument(
         "--resume",

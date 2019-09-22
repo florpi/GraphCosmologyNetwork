@@ -1,7 +1,8 @@
-import argparse
-import numpy as np
 import os
 import time
+from datetime import datetime
+import argparse
+import numpy as np
 from pathlib import Path
 
 import torch
@@ -24,10 +25,18 @@ from sklearn.metrics import (
     confusion_matrix,
     precision_recall_fscore_support,
 )
-import time
 import h5py
 
 import matplotlib.pyplot as plt
+
+import logging
+
+logging.basicConfig(
+    filename="logs/train_%s.log" % datetime.now().strftime("%H%M_%d%m%Y"),
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%d-%b-%y %H:%M:%S",
+)
 
 
 # TODO: print validation loss
@@ -115,6 +124,13 @@ def get_arguments() -> argparse.Namespace:
         metavar="N",
         help="Number of workers for DataLoaders. Default: 4.",
     )
+    # TODO: implement label selection
+    # parser.add_argument(
+    # 	"--label",
+    # 	action="store_true",
+    # 	default="dark_or_light",
+    # 	help="What to learn: dark_or_light, nr_of_galaxies, central_or_satellite, ...",
+    # )
 
     # Parse and return the arguments (as a Namespace object)
     arguments = parser.parse_args()
@@ -231,8 +247,8 @@ def train_validate(
     # Print information to console, if applicable
 
     # Print some information about how the training is going
-    print(f"Epoch: {epoch:>3}/{args.epochs}", end=" | ", flush=True)
-    print(f"Loss: {loss.item():.6f}", end=" | ", flush=True)
+    logging.info(f"Epoch: {epoch:>3}/{args.epochs}", end=" | ", flush=True)
+    logging.info(f"Loss: {loss.item():.6f}", end=" | ", flush=True)
 
     # Activate model evaluation mode
     model.eval()
@@ -258,12 +274,12 @@ if __name__ == "__main__":
     # Read in command line arguments
     args = get_arguments()
 
-    print("")
-    print(f"TRAINING NETWORK")
-    print("")
+    logging.info("")
+    logging.info(f"TRAINING NETWORK")
+    logging.info("")
 
-    print("Preparing the training process:")
-    print(80 * "-")
+    logging.info("Preparing the training process:")
+    logging.info(80 * "-")
 
     # -------------------------------------------------------------------------
     # Load the experiment configuration
@@ -284,10 +300,10 @@ if __name__ == "__main__":
         args.device = "cuda"
         device_count = torch.cuda.device_count()
         device_name = torch.cuda.get_device_name(0)
-        print(f"device: \t\t GPU ({device_count} x {device_name})")
+        logging.info(f"device: \t\t GPU ({device_count} x {device_name})")
     else:
         args.device = "cpu"
-        print("device: \t\t CPU [CUDA not requested or unavailable]")
+        logging.info("device: \t\t CPU [CUDA not requested or unavailable]")
 
     # -------------------------------------------------------------------------
     # Set up the network model
@@ -300,7 +316,7 @@ if __name__ == "__main__":
     )
     model = model_class(**config["model"]["parameters"])
 
-    print("model: \t\t\t", model.__class__.__name__)
+    logging.info("model: \t\t\t", model.__class__.__name__)
 
     # DataParallel will divide and allocate batch_size to all available GPUs
     if args.device == "cuda":
@@ -317,11 +333,11 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(
         params=model.parameters(), lr=args.learning_rate, amsgrad=True
     )
-    print("optimizer: \t\t", optimizer.__class__.__name__)
+    logging.info("optimizer: \t\t", optimizer.__class__.__name__)
 
     # Define the loss function (we use a simple MSE loss)
     loss_func = torch.nn.CrossEntropyLoss().to(args.device)
-    print("loss_function: \t\t", loss_func.__class__.__name__)
+    logging.info("loss_function: \t\t", loss_func.__class__.__name__)
 
     # Reduce the LR by a factor of 0.5 if the validation loss did not
     # go down for at least 10 training epochs
@@ -355,7 +371,7 @@ if __name__ == "__main__":
         args.start_epoch = checkpoint_manager.last_epoch + 1
 
         # Print which checkpoint we are using and where we start to train
-        print(
+        logging.info(
             f"checkpoint:\t\t {args.resume} "
             f"(epoch: {checkpoint_manager.last_epoch})"
         )
@@ -363,7 +379,7 @@ if __name__ == "__main__":
     # Other, simply print that we're not using any checkpoint
     else:
         args.start_epoch = 1
-        print("checkpoint: \t\t None")
+        logging.info("checkpoint: \t\t None")
 
     # -------------------------------------------------------------------------
     # Load datasets for training and validation
@@ -394,11 +410,11 @@ if __name__ == "__main__":
     # Train the network for the given number of epochs
     # -------------------------------------------------------------------------
 
-    print(80 * "-" + "\n\n" + "Training the model:\n" + 80 * "-")
+    logging.info(80 * "-" + "\n\n" + "Training the model:\n" + 80 * "-")
 
     for epoch in range(args.start_epoch, args.epochs):
 
-        print("")
+        logging.info("")
         epoch_start = time.time()
 
         # ---------------------------------------------------------------------
@@ -442,11 +458,11 @@ if __name__ == "__main__":
         # Print epoch duration
         # ---------------------------------------------------------------------
 
-        print(f"Total Epoch Time: {time.time() - epoch_start:.3f}s\n")
+        logging.info(f"Total Epoch Time: {time.time() - epoch_start:.3f}s\n")
 
         # ---------------------------------------------------------------------
 
-    print(80 * "-" + "\n\n" + "Training complete!")
+    logging.info(80 * "-" + "\n\n" + "Training complete!")
     """
 
 	val_prediction, val_label = predict(dataloader = validation_dataloader,

@@ -38,7 +38,6 @@ logging.basicConfig(
     datefmt="%d-%b-%y %H:%M:%S",
 )
 
-
 # TODO: print validation loss
 #      fix tensorboard
 # 	   support for graph net together w fully
@@ -414,7 +413,7 @@ if __name__ == "__main__":
 
     for epoch in range(args.start_epoch, args.epochs):
 
-        logging.info("")
+        print("")
         epoch_start = time.time()
 
         # ---------------------------------------------------------------------
@@ -458,11 +457,11 @@ if __name__ == "__main__":
         # Print epoch duration
         # ---------------------------------------------------------------------
 
-        logging.info(f"Total Epoch Time: {time.time() - epoch_start:.3f}s\n")
+        print(f"Total Epoch Time: {time.time() - epoch_start:.3f}s\n")
 
         # ---------------------------------------------------------------------
 
-    logging.info(80 * "-" + "\n\n" + "Training complete!")
+    print(80 * "-" + "\n\n" + "Training complete!")
     """
 
 	val_prediction, val_label = predict(dataloader = validation_dataloader,

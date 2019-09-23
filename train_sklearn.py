@@ -21,16 +21,23 @@ from sklearn.metrics import (
 )
 
 from GNN.inputs import get_data, split
-from GNN.utils.cm import plot_confusion_matrix
-from GNN.utils.checkpointing import CheckpointManager
 from GNN.utils.config import load_config
-from GNN.utils.importing import get_class_by_name
-from GNN.utils.training import AverageMeter, get_log_dir, update_lr
 
+# from GNN.utils.importing import get_class_by_name
+
+from sacred import Experiment
 import logging
 
+# -----------------------------------------------------------------------------
+# Logging and Experiment set-up
+# -----------------------------------------------------------------------------
+
+tag_datetime = datetime.now().strftime("%H%M_%d%m%Y")
+
+ex = Experiment("logs/sacred_%s.log" % tag_datetime)
+
 logging.basicConfig(
-    filename="logs/train_%s.log" % datetime.now().strftime("%H%M_%d%m%Y"),
+    filename="logs/log_%s.log" % tag_datetime,
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%d-%b-%y %H:%M:%S",
@@ -41,6 +48,7 @@ logging.basicConfig(
 # -----------------------------------------------------------------------------
 
 
+@ex.config  # <- sacred decorator
 def get_arguments() -> argparse.Namespace:
     """
 	Set up an ArgumentParser to get the command line arguments.
@@ -54,6 +62,16 @@ def get_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     # Add arguments
+    # TODO:
+    parser.add_argument(
+        "--model",
+        action="store_true",
+        default="nr_of_galaxies",
+        help=(
+            "Which non-convolutional ML-model do you want to use: "
+            + "rnf, xgboost, lightgbm? Default: rnf."
+        ),
+    )
     # TODO:
     parser.add_argument(
         "--label",
@@ -82,11 +100,18 @@ def get_arguments() -> argparse.Namespace:
         help="Use TensorBoard to log training progress? Default: False.",
     )
     parser.add_argument(
-        "--batch-size",
-        default=64,
+        "--n_estimators",
+        default=500,
         type=int,
         metavar="N",
-        help="Size of the mini-batches during training. " "Default: 64.",
+        help="The number of trees in the forest. Default: 500.",
+    )
+    # TODO:
+    parser.add_argument(
+        "--PCA",
+        action="store_true",
+        default=False,
+        help="Which features shoud be used: input file or PCA analysis? Default: input file.",
     )
     parser.add_argument(
         "--experiment",
@@ -96,105 +121,19 @@ def get_arguments() -> argparse.Namespace:
         help="Name of the experiment to run (must be a folder "
         'in the experiments dir). Default: "default".',
     )
-    parser.add_argument(
-        "--workers",
-        default=4,
-        type=int,
-        metavar="N",
-        help="Number of workers for DataLoaders. Default: 4.",
-    )
 
     # Parse and return the arguments (as a Namespace object)
     arguments = parser.parse_args()
     return arguments
 
 
-def train_validate(
-    features: torch.Tensor,
-    labels: torch.Tensor,
-    train_idx: torch.Tensor,
-    val_idx: torch.Tensor,
-    model: torch.nn.Module,
-    loss_func: Callable,
-    optimizer: torch.optim.Optimizer,
-    epoch: int,
-    args: argparse.Namespace,
-):
-    """
-	Train the given model for a single epoch using the given dataloader.
-
-	Args:
-		dataloader: The dataloader containing the training data.
-		model: Instance of the model that is being trained.
-		loss_func: A loss function to compute the error between the
-			actual and the desired output of the model.
-		optimizer: An instance of an optimizer that is used to compute
-			and perform the updates to the weights of the network.
-		epoch: The current training epoch.
-		args: Namespace object containing some global variable (e.g.,
-			command line arguments, such as the batch size)
-	"""
-
-    # -------------------------------------------------------------------------
-    # Preliminaries
-    # -------------------------------------------------------------------------
-
-    # Activate training mode
-    model.train()
-
-    # Fetch data and move to device
-    features, labels = features.to(args.device), labels.to(args.device)
-    labels = labels.squeeze()
-
-    # Clear gradients
-    optimizer.zero_grad()
-
-    output = model.forward(features).squeeze()
-
-    loss = loss_func(output[train_mask, :], labels[train_mask, ...])
-
-    # Back-propagate the loss and update the weights
-    loss.backward()
-    optimizer.step(closure=None)
-
-    # ---------------------------------------------------------------------
-    # Log information about current batch to TensorBoard
-    # ---------------------------------------------------------------------
-
-    if args.tensorboard:
-        # Compute how many examples we have processed already and log the
-        # loss value for the current batch
-        # global_step = ((epoch - 1) * args.n_train_batches + batch_idx) * \
-        # 			  args.batch_size
-        args.logger.add_scalar(
-            tag="loss/train", scalar_value=loss.item(), global_step=epoch
-        )
-
-    # ---------------------------------------------------------------------
-    # Additional logging to console
-    # ---------------------------------------------------------------------
-
-    # Store the loss and processing time for the current batch
-
-    # Print information to console, if applicable
-
-    # Print some information about how the training is going
-    logging.info(f"Epoch: {epoch:>3}/{args.epochs}", end=" | ", flush=True)
-    logging.info(f"Loss: {loss.item():.6f}", end=" | ", flush=True)
-
-    # Activate model evaluation mode
-    model.eval()
-
-    val_loss = loss_func(output[val_mask, :], labels[val_mask, ...])
-
-    return val_loss
-
-
 # -----------------------------------------------------------------------------
 # MAIN CODE
 # -----------------------------------------------------------------------------
 
-if __name__ == "__main__":
+
+@ex.automain  # <- sacred decorator
+def run():
 
     # -------------------------------------------------------------------------
     # Preliminaries
@@ -203,11 +142,8 @@ if __name__ == "__main__":
     args = get_arguments()
 
     logging.info("")
-    logging.info(f"TRAINING NETWORK")
+    logging.info(f"GROWING TREES")
     logging.info("")
-
-    logging.info("Preparing the training process:")
-    logging.info(80 * "-")
 
     # -------------------------------------------------------------------------
     # Load the experiment configuration
@@ -219,19 +155,6 @@ if __name__ == "__main__":
 
     # Load the config
     config = load_config(config_file_path=config_file_path)
-
-    # -------------------------------------------------------------------------
-    # Set up the random-forest model
-    # -------------------------------------------------------------------------
-
-    # Create a new instance of the model we want to train (specified in the
-    # experiment config file), using the desired model parameters
-    model_class = get_class_by_name(
-        module_name=config["model"]["module"], class_name=config["model"]["class"]
-    )
-    model = model_class(**config["model"]["parameters"])
-
-    logging.info("model: \t\t\t", model.__class__.__name__)
 
     # -------------------------------------------------------------------------
     # Load and prepare datasets
@@ -282,67 +205,36 @@ if __name__ == "__main__":
     std_train_features = scaler.transform(df_train_features)
     test_features = scaler.transform(test_features)
 
-    # -------------------------------------------------------------------------
-    # Create a TensorBoard logger and log some basics
-    # -------------------------------------------------------------------------
-
-    if args.tensorboard:
-
-        # Create a dir where all the TensorBoard logs will be stored
-        tensorboard_dir = os.path.join(experiment_dir, "tensorboard")
-        Path(tensorboard_dir).mkdir(exist_ok=True)
-
-        # Create TensorBoard logger
-        args.logger = SummaryWriter(log_dir=get_log_dir(log_base_dir=tensorboard_dir))
-
-        # Add all args to as text objects (to epoch 0)
-        for key, value in dict(vars(args)).items():
-            args.logger.add_text(tag=key, text_string=str(value), global_step=0)
+    if args.PCA is True:
+        # n_comp = 7
+        # pca = PCA(n_components=n_comp)
+        # pca = PCA().fit(std_train_features)
+        pca_data = PCA().fit_transform(std_train_features)
+        pca_inv_data = PCA().inverse_transform(np.eye(len(feature_names)))
 
     # -------------------------------------------------------------------------
-    # Train the network for the given number of epochs
+    # Set-up and Run random-forest (RNF) model
     # -------------------------------------------------------------------------
 
-    logging.info(80 * "-" + "\n\n" + "Training the model:\n" + 80 * "-")
+    # Create instance of the RNF we want to use as specified in
+    # the experiment config file
+    """
+    model_class = get_class_by_name(
+        module_name=config["model"]["module"], class_name=config["model"]["class"]
+    )
+    model = model_class(**config["model"]["parameters"])
+    logging.info("model: \t\t\t", model.__class__.__name__)
+    """
+    rf = RandomForestClassifier(n_estimators=args.n_estimators)
+    rf.fit(std_train_features, df_train_labels)
 
-    for epoch in range(args.start_epoch, args.epochs):
+    # Run RNF
+    test_pred = rf.predict(test_features)
 
-        logging.info("")
-        epoch_start = time.time()
+    # ex.log_scalar("true_cancel_count", true_cancel_count)  # <- sacred decorator
+    # ex.log_scalar("pred_cancel_count", pred_cancel_count)  # <- sacred decorator
+    # ex.log_scalar("train_cancel_orders", train_cancel_count)  # <- sacred decorator
 
-        # ---------------------------------------------------------------------
-        # Train the model for one epoch
-        # ---------------------------------------------------------------------
-
-        validation_loss = train_validate(
-            features=std_features,
-            labels=labels,
-            train_idx=train_mask,
-            val_idx=val_mask,
-            model=model,
-            loss_func=loss_func,
-            optimizer=optimizer,
-            epoch=epoch,
-            args=args,
-        )
-
-        # ---------------------------------------------------------------------
-        # Take a step with the CheckpointManager
-        # ---------------------------------------------------------------------
-
-        # This will create checkpoint if the current model is the best we've
-        # seen yet, and also once every `step_size` number of epochs.
-        checkpoint_manager.step(metric=validation_loss, epoch=epoch)
-
-        # ---------------------------------------------------------------------
-        # Update the learning rate of the optimizer (using the LR scheduler)
-        # ---------------------------------------------------------------------
-
-        # Take a step with the LR scheduler; print message when LR changes
-        current_lr = update_lr(scheduler, optimizer, validation_loss)
-
-        # Log the current value of the LR to TensorBoard
-        if args.tensorboard:
-            args.logger.add_scalar(
-                tag="learning_rate", scalar_value=current_lr, global_step=epoch
-            )
+    # Save result
+    fname_out = ""
+    np.save(fname_out, test_pred)

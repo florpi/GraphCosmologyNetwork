@@ -20,7 +20,8 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
 )
 
-from GNN.inputs import get_data, split
+from GNN.inputs.datautils import train_test_val_split
+from GNN.inputs import get_data
 from GNN.utils.config import load_config
 
 # from GNN.utils.importing import get_class_by_name

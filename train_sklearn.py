@@ -99,13 +99,6 @@ def get_arguments() -> argparse.Namespace:
         default=False,
         help="Use TensorBoard to log training progress? Default: False.",
     )
-    parser.add_argument(
-        "--n_estimators",
-        default=500,
-        type=int,
-        metavar="N",
-        help="The number of trees in the forest. Default: 500.",
-    )
     # TODO:
     parser.add_argument(
         "--PCA",
@@ -132,9 +125,9 @@ def get_arguments() -> argparse.Namespace:
 # -----------------------------------------------------------------------------
 
 
-#@ex.automain  # <- sacred decorator
-#def run():
-if __name__ == "__main__":
+@ex.automain  # <- sacred decorator
+def run():
+    #if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # Preliminaries
     # -------------------------------------------------------------------------
@@ -155,7 +148,7 @@ if __name__ == "__main__":
 
     # Load the config
     config = load_config(config_file_path=config_file_path)
-
+    
     # -------------------------------------------------------------------------
     # Load and prepare datasets
     # -------------------------------------------------------------------------
@@ -171,6 +164,7 @@ if __name__ == "__main__":
     center_transition = 2.1e11
     end_transition = 8e11
 
+    """
     logging.info(
         "The labels before balancing are as follows:", train.labels.value_counts()
     )
@@ -184,9 +178,13 @@ if __name__ == "__main__":
             (train.M200c > center_transition) & (train.M200c < end_transition)
         ].labels.value_counts(),
     )
+    """
 
     train_features = train.drop(columns="labels")
     train_labels = train["labels"]
+    
+    test_features = test.drop(columns="labels")
+    test_labels = test["labels"]
 
     ## Standarize features
     scaler = StandardScaler()
@@ -214,8 +212,9 @@ if __name__ == "__main__":
     model = model_class(**config["model"]["parameters"])
     logging.info("model: \t\t\t", model.__class__.__name__)
     """
-    rf = RandomForestClassifier(n_estimators=args.n_estimators)
-    rf.fit(std_train_features, df_train_labels)
+    print("config", config["model"]["parameters"])
+    rf = RandomForestClassifier(config["model"]["parameters"]["n_estimators"])
+    rf.fit(train_features, train_labels)
 
     # Run RNF
     test_pred = rf.predict(test_features)

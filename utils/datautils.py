@@ -9,7 +9,6 @@ from imblearn.over_sampling import SMOTE
 def get_data(hdf5_filename: str, arg_label: str):
     """
     """
-    print("hdf5_filename,", hdf5_filename)
     df = pd.read_hdf(hdf5_filename, key='df', mode='r')
 
     # Chose label
@@ -54,13 +53,15 @@ def _train_test_val_split(n_nodes, train_size=0.7):
 
 
 def balance_dataset(
-    df_train, center_transition: float, end_transition: float, arg_sampling: str
+    df, center_transition: float, end_transition: float, arg_sampling: str
 ):
-    df_train_sample = _balance_df_given_mass(
-        df_train, "labels", 0.0, center_transition, 0, 1, mode=arg_sampling
+
+    # TODO: fix balance parameters; return none 
+    df_sample = _balance_df_given_mass(
+        df, "labels", 0.0, center_transition, 0, 1, mode=arg_sampling
     )
-    df_train_sample = _balance_df_given_mass(
-        df_train_sample,
+    df_sample = _balance_df_given_mass(
+        df_sample,
         "labels",
         center_transition,
         end_transition,
@@ -78,7 +79,6 @@ def _balance_df_given_mass(
     """
     internal function indicated by leading _
     """
-
     mass_threshold = (df.M200c > minimum_mass) & (df.M200c < maximum_mass)
 
     df_M = df[mass_threshold]

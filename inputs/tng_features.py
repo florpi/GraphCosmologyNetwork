@@ -7,133 +7,43 @@ from scipy.spatial import distance as fast_distance
 from scipy.optimize import curve_fit
 import h5py
 
-
-class HaloCatalog:
-	def __init__(self, snapnum=99):
-		"""
-		Class to read halo catalogs from simulation
-
-		snapnum: snapshot number to read
-
-		"""
-
-		# Read snapshot
-
-		h5_dir = "/cosma7/data/TNG/TNG300-1/"
-		self.snapnum = snapnum
-		self.snapshot = read_hdf5.snapshot(snapnum, h5_dir)
-
-		self.boxsize = self.snapshot.header.boxsize / self.snapshot.header.hubble # kpc
-
-		# Useful definitions
-		self.dm = 1
-		self.stars = 4
-		self.dm_particle_mass = self.snapshot.header.massarr[self.dm] * 1.0e10
-
-		self.stellar_mass_thresh = 1.0e9
-		# self.halo_mass_thresh = self.dm_particle_mass * 100. # at least 100 particles
-		self.halo_mass_thresh = 1.0e11
-
-		print("Minimum stellar mass : %.2E" % self.stellar_mass_thresh)
-		print("Minimum DM halo mass : %.2E" % self.halo_mass_thresh)
-
-		# Load fields that will be used
-		useful_properties = [
-			"GroupFirstSub",
-			"Group_M_Crit200",
-			"GroupNsubs",
-			"GroupPos",
-			"GroupVel",
-			"Group_R_Crit200",
-			"SubhaloMassType",
-			"GroupMassType",
-			"SubhaloCM",
-			"GroupCM",
-			"SubhaloMass",
-			"SubhaloMassInHalfRad",
-			"SubhaloSpin",
-			"SubhaloVelDisp",
-			"SubhaloVmax",
-		]
-
-		self.snapshot.group_catalog(useful_properties)
-
-		self.N_subhalos = (self.snapshot.cat["GroupNsubs"]).astype(np.int64)
-		# Get only resolved halos
-		self.halo_mass_cut = (
-			self.snapshot.cat["Group_M_Crit200"][:] > self.halo_mass_thresh
-		)
-
-		# self.group_offset = (np.cumsum(self.N_particles) - self.N_particles).astype(np.int64)
-		# self.group_offset = self.group_offset[self.halo_mass_cut]
-
-		self.subhalo_offset = (np.cumsum(self.N_subhalos) - self.N_subhalos).astype(
-			np.int64
-		)
-		self.subhalo_offset = self.subhalo_offset[self.halo_mass_cut]
-
-		self.N_subhalos = self.N_subhalos[self.halo_mass_cut]
-
-		self.N_halos = self.N_subhalos.shape[0]
-		print("%d resolved halos found." % self.N_halos)
-
-		self.N_gals, self.M_stars = self.Number_of_galaxies()
-		print("%d resolved galaxies found." % np.sum(self.N_gals))
-
-		self.logM_stars = np.log10(self.M_stars)
-
-		self.load_inmidiate_features()
-
-		self.compute_fsub_unbound()
-		self.compute_x_offset()
-
-	def Number_of_galaxies(self):
-		"""
-
-		Given the halo catalog computes the stellar mass of a given halo, and its number of galaxies. 
-		The number of galaxies is defined as the number of subhalos that halo has over a given stellar mass 
-		defined inside the class
-		Outputs: N_gals, number of galaxies belonging to the halo
-				M_stars, mass of the stellar component bound to the halo
-
-		"""
-		# Subhaloes defined as galaxies with a stellar mass larger than the threshold
-		N_gals = np.zeros((self.N_halos), dtype=np.int)
-		M_stars = np.zeros((self.N_halos), dtype=np.int)
-		for i in range(self.N_halos):
-			N_gals[i] = np.sum(
-				self.snapshot.cat["SubhaloMassType"][
-					self.subhalo_offset[i] : self.subhalo_offset[i]
-					+ self.N_subhalos[i],
-					self.stars,
-				]
-				> self.stellar_mass_thresh
-			)
-			M_stars[i] = np.sum(
-				self.snapshot.cat["SubhaloMassType"][
-					self.subhalo_offset[i] : self.subhalo_offset[i]
-					+ self.N_subhalos[i],
-					self.stars,
-				]
-			)
-
-		return N_gals, M_stars
+class Catalog:
+	def __init__(self):
 
 
-	def load_inmidiate_features(self):
+	def load_inmidiate_features(self, 
+			group_feature_list: list, sub_feature_list: list):
 		"""
 
 		Loads features already computed by SUBFIND 
 		+ Bullock spin parameter (http://iopscience.iop.org/article/10.1086/321477/fulltext/52951.text.html)
 		"""
 
-		self.m200c = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut]
+		for feature in feature_list:
+			value = self.snapshot.cat[feature][self.halo_mass_cut]
+			if (feature == 'Group_M_Crit200') or ('Mass' in feature):
+				value *= self.snapshot.header.hubble
+			setattr(self, feature, value)
+
+		self.firstsub = (self.GroupFirstSub).astype(int)
+
+		self.v200c = np.sqrt(self.snapshot.const.G * self.m200c / self.r200c/1000.) * self.snapshot.const.Mpc / 1000. 
+
+		for feature in sub_feature_list:
+			value = self.snapshot.cat[feature][self.firstsub]
+			if (feature == 'Group_M_Crit200') or ('Mass' in feature):
+				value *= self.snapshot.header.hubble
+			setattr(self, feature, value)
+
+		self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
+
+		self.m200c = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut] * self.snapshot.header.hubble
 		self.r200c = self.snapshot.cat['Group_R_Crit200'][self.halo_mass_cut]
 		self.total_mass = self.snapshot.cat['GroupMassType'][self.halo_mass_cut, self.dm]
 		self.halopos = self.snapshot.cat['GroupPos'][self.halo_mass_cut]#.clip(min = 0)
 		self.halovel = self.snapshot.cat['GroupVel'][self.halo_mass_cut]
 		self.firstsub = (self.snapshot.cat['GroupFirstSub'][self.halo_mass_cut]).astype(int)
-		self.bound_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.dm]
+		self.bound_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.dm] * self.snapshot.header.hubble
 		self.halocm = self.snapshot.cat['SubhaloCM'][self.firstsub]
 		self.fofcm = self.snapshot.cat['GroupCM'][self.halo_mass_cut]
 		self.vdisp = self.snapshot.cat['SubhaloVelDisp'][self.firstsub]
@@ -141,11 +51,9 @@ class HaloCatalog:
 		#self.rmax = self.snapshot.cat['SubhaloVmaxRad'][self.firstsub]
 		#self.rhalf = self.snapshot.cat['SubhaloHalfmassRadType'][self.firstsub, self.dm]
 		self.spin_3d = self.snapshot.cat['SubhaloSpin'][self.firstsub,:]
-		self.v200c = np.sqrt(self.snapshot.const.G * self.m200c / self.r200c/1000.) * self.snapshot.const.Mpc / 1000. 
 		#km/s
-		self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
 
-		self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars]
+		self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars] * self.snapshot.header.hubble
 
 
 	def compute_x_offset(self):
@@ -334,6 +242,157 @@ class HaloCatalog:
 		hf.create_dataset('x_offset', data = self.x_offset)
 		hf.create_dataset('stellar_mass', data = self.stellar_mass)
 		hf.close()
+
+
+class HaloCatalog:
+	def __init__(self, snapnum=99):
+		"""
+		Class to read halo catalogs from simulation
+
+		snapnum: snapshot number to read
+
+		"""
+
+		# Read snapshot
+
+		h5_dir = "/cosma7/data/TNG/TNG300-1-Dark/"
+		self.snapnum = snapnum
+		self.snapshot = read_hdf5.snapshot(snapnum, h5_dir)
+
+		self.boxsize = self.snapshot.header.boxsize / self.snapshot.header.hubble # kpc
+
+		# Useful definitions
+		self.dm = 1
+		self.stars = 4
+		self.dm_particle_mass = self.snapshot.header.massarr[self.dm] * 1.0e10
+
+		self.halo_mass_thresh = 1.0e11 
+
+		print("Minimum DM halo mass : %.2E" % self.halo_mass_thresh)
+
+		# Load fields that will be used
+		useful_properties = [
+			"GroupFirstSub",
+			"Group_M_Crit200",
+			"GroupNsubs",
+			"GroupPos",
+			"GroupVel",
+			"Group_R_Crit200",
+			"SubhaloMassType",
+			"GroupMassType",
+			"SubhaloCM",
+			"GroupCM",
+			"SubhaloMass",
+			"SubhaloMassInHalfRad",
+			"SubhaloSpin",
+			"SubhaloVelDisp",
+			"SubhaloVmax",
+		]
+
+		self.snapshot.group_catalog(useful_properties)
+
+		self.N_subhalos = (self.snapshot.cat["GroupNsubs"]).astype(np.int64)
+		# Get only resolved halos
+		self.halo_mass_cut = (
+				self.snapshot.cat["Group_M_Crit200"][:] * self.snapshot.header.hubble > self.halo_mass_thresh
+		)
+		# Save IDs of haloes
+		self.halo_id = np.arange(0, len(self.halo_mass_cut))
+		self.halo_id = self.halo_id[self.halo_mass_cut]
+
+		# self.group_offset = (np.cumsum(self.N_particles) - self.N_particles).astype(np.int64)
+		# self.group_offset = self.group_offset[self.halo_mass_cut]
+
+		self.subhalo_offset = (np.cumsum(self.N_subhalos) - self.N_subhalos).astype(
+			np.int64
+		)
+		self.subhalo_offset = self.subhalo_offset[self.halo_mass_cut]
+
+		self.N_subhalos = self.N_subhalos[self.halo_mass_cut]
+
+		self.N_halos = self.N_subhalos.shape[0]
+		print("%d resolved halos found." % self.N_halos)
+
+		self.N_gals, self.M_stars = self.Number_of_galaxies()
+		print("%d resolved galaxies found." % np.sum(self.N_gals))
+
+		self.logM_stars = np.log10(self.M_stars)
+
+		self.load_inmidiate_features()
+
+		self.compute_fsub_unbound()
+		self.compute_x_offset()
+
+class GalaxyCatalog:
+	def __init__(self, snapnum=99):
+		"""
+		Class to read halo catalogs from simulation
+
+		snapnum: snapshot number to read
+
+		"""
+
+		# Read snapshot
+
+		h5_dir = "/cosma7/data/TNG/TNG300-1/"
+		self.snapnum = snapnum
+		self.snapshot = read_hdf5.snapshot(snapnum, h5_dir)
+
+		self.boxsize = self.snapshot.header.boxsize / self.snapshot.header.hubble # kpc
+
+		# Useful definitions
+		self.dm = 1
+		self.stars = 4
+		self.dm_particle_mass = self.snapshot.header.massarr[self.dm] * 1.0e10
+
+		self.stellar_mass_thresh = 1.0e9 
+		# self.halo_mass_thresh = self.dm_particle_mass * 100. # at least 100 particles
+		# Load fields that will be used
+		useful_properties = [
+			"GroupFirstSub",
+			"SubhaloMassType",
+			"GroupMassType",
+		]
+
+		self.snapshot.group_catalog(useful_properties)
+
+
+		print("Minimum stellar mass : %.2E" % self.stellar_mass_thresh)
+
+	def Number_of_galaxies(self):
+		"""
+
+		Given the halo catalog computes the stellar mass of a given halo, and its number of galaxies. 
+		The number of galaxies is defined as the number of subhalos that halo has over a given stellar mass 
+		defined inside the class
+		Outputs: N_gals, number of galaxies belonging to the halo
+				M_stars, mass of the stellar component bound to the halo
+
+		"""
+		# Subhaloes defined as galaxies with a stellar mass larger than the threshold
+		N_gals = np.zeros((self.N_halos), dtype=np.int)
+		M_stars = np.zeros((self.N_halos), dtype=np.int)
+		for i in range(self.N_halos):
+			N_gals[i] = np.sum(
+				self.snapshot.cat["SubhaloMassType"][
+					self.subhalo_offset[i] : self.subhalo_offset[i]
+					+ self.N_subhalos[i],
+					self.stars,
+				]
+				> self.stellar_mass_thresh
+			)
+			M_stars[i] = np.sum(
+				self.snapshot.cat["SubhaloMassType"][
+					self.subhalo_offset[i] : self.subhalo_offset[i]
+					+ self.N_subhalos[i],
+					self.stars,
+				]
+			)
+
+		return N_gals, M_stars
+
+
+
 
 if __name__ == "__main__":
 

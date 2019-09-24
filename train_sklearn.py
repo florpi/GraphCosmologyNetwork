@@ -212,8 +212,8 @@ def run():
     model = model_class(**config["model"]["parameters"])
     logging.info("model: \t\t\t", model.__class__.__name__)
     """
-    print("config", config["model"]["parameters"])
-    rf = RandomForestClassifier(config["model"]["parameters"]["n_estimators"])
+    
+    rf = RandomForestClassifier(**config["model"]["parameters"])
     rf.fit(train_features, train_labels)
 
     # Run RNF

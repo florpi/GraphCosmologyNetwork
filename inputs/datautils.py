@@ -33,7 +33,7 @@ def get_data(hdf5_filename: str, arg_label: str):
             labels = labels > 0
 
     # Test, train, validation split
-    train_idx, test_idx, val_idx = split.train_test_val_split(
+    train_idx, test_idx, val_idx = _train_test_val_split(
         labels.shape[0], train_size=0.5
     )
     test_idx = np.concatenate((test_idx, val_idx))  # TODO: only temporary
@@ -43,7 +43,10 @@ def get_data(hdf5_filename: str, arg_label: str):
     return train, test
 
 
-def train_test_val_split(n_nodes, train_size=0.7):
+def _train_test_val_split(n_nodes, train_size=0.7):
+    """
+    internal function indicated by leading _
+    """
     np.random.seed(0)
 
     test_val_idx = np.random.choice(

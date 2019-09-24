@@ -6,58 +6,67 @@ import numpy as np
 from scipy.spatial import distance as fast_distance
 from scipy.optimize import curve_fit
 import h5py
+import pandas as pd
 
 class Catalog:
-	def __init__(self):
+	'''
 
+	Class to describe a catalog and its methods
+
+
+	'''
+	def __init__(self, 
+			h5_dir: str, 
+			snapnum: int):
+		'''
+		Args:
+			h5_dir: directory containing tng data
+			snapnum: Snapshot number to read
+		'''
+
+		self.snapnum = snapnum
+
+		self.snapshot = read_hdf5.snapshot(snapnum, h5_dir)
+
+		# Useful definitions
+		self.dm = 1
+		self.stars = 4
+		self.dm_particle_mass = self.snapshot.header.massarr[self.dm] * 1.0e10
+		self.output_dir = '/cosma6/data/dp004/dc-cues1/tng_dataframes/'
 
 	def load_inmidiate_features(self, 
-			group_feature_list: list, sub_feature_list: list):
+			group_feature_list: list, 
+			sub_feature_list: list):
 		"""
-
 		Loads features already computed by SUBFIND 
 		+ Bullock spin parameter (http://iopscience.iop.org/article/10.1086/321477/fulltext/52951.text.html)
+
+		Args:
+			group_feature_list: list of group features to load and save as attributes of the class
+			sub_feature_list: list of subgroup features to load and save as attributes of the class
+
 		"""
 
-		for feature in feature_list:
+		for feature in group_feature_list:
 			value = self.snapshot.cat[feature][self.halo_mass_cut]
-			if (feature == 'Group_M_Crit200') or ('Mass' in feature):
+			if ('Crit200' in feature) or ('Mass' in feature):
 				value *= self.snapshot.header.hubble
 			setattr(self, feature, value)
 
 		self.firstsub = (self.GroupFirstSub).astype(int)
 
-		self.v200c = np.sqrt(self.snapshot.const.G * self.m200c / self.r200c/1000.) * self.snapshot.const.Mpc / 1000. 
+		self.v200c = np.sqrt(self.snapshot.const.G * self.Group_M_Crit200/ self.Group_R_Crit200/1000.) * self.snapshot.const.Mpc / 1000. 
 
 		for feature in sub_feature_list:
 			value = self.snapshot.cat[feature][self.firstsub]
-			if (feature == 'Group_M_Crit200') or ('Mass' in feature):
+			if ('Crit200' in feature) or ('Mass' in feature):
 				value *= self.snapshot.header.hubble
-			setattr(self, feature, value)
+			setattr(self, feature.replace('Subhalo', ''), value)
 
-		self.spin_3d = (np.linalg.norm(self.SubhaloSpin, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
+		self.Spin= (np.linalg.norm(self.Spin, axis=1)/3.) / np.sqrt(2) / self.Group_R_Crit200/self.v200c
 
-		self.stellar_mass = self.SubhaloMassType[:, self.stars] 
-
-		'''
-		self.m200c = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut] * self.snapshot.header.hubble
-		self.r200c = self.snapshot.cat['Group_R_Crit200'][self.halo_mass_cut]
-		self.total_mass = self.snapshot.cat['GroupMassType'][self.halo_mass_cut, self.dm]
-		self.halopos = self.snapshot.cat['GroupPos'][self.halo_mass_cut]#.clip(min = 0)
-		self.halovel = self.snapshot.cat['GroupVel'][self.halo_mass_cut]
-		self.firstsub = (self.snapshot.cat['GroupFirstSub'][self.halo_mass_cut]).astype(int)
-		self.bound_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.dm] * self.snapshot.header.hubble
-		self.halocm = self.snapshot.cat['SubhaloCM'][self.firstsub]
-		self.fofcm = self.snapshot.cat['GroupCM'][self.halo_mass_cut]
-		self.vdisp = self.snapshot.cat['SubhaloVelDisp'][self.firstsub]
-		self.vmax = self.snapshot.cat['SubhaloVmax'][self.firstsub]
-		#self.rmax = self.snapshot.cat['SubhaloVmaxRad'][self.firstsub]
-		#self.rhalf = self.snapshot.cat['SubhaloHalfmassRadType'][self.firstsub, self.dm]
-		self.spin_3d = self.snapshot.cat['SubhaloSpin'][self.firstsub,:]
-		#km/s
-
-		self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars] * self.snapshot.header.hubble
-		'''
+		self.bound_mass = self.MassType[:, self.dm] 
+		self.total_mass = self.GroupMassType[:, self.dm]
 
 
 	def compute_x_offset(self):
@@ -68,7 +77,7 @@ class Catalog:
 
 		"""
 
-		self.x_offset = self.periodic_distance(self.fofcm, self.halopos) / self.r200c
+		self.x_offset = self.periodic_distance(self.GroupCM, self.GroupPos) / self.Group_R_Crit200
 
 	def compute_fsub_unbound(self):
 		"""
@@ -115,7 +124,7 @@ class Catalog:
 				self.group_offset[i] : self.group_offset[i] + self.N_particles[i]
 			]
 			density, bin_centers = density_profile(
-				coord, self.halopos[i], self.r200c[i]
+				coord, self.GroupPos[i], self.r200c[i]
 			)
 			try:
 				popt, pcov = curve_fit(nfw, bin_centers, np.log10(density))
@@ -130,11 +139,14 @@ class Catalog:
 				chi2_concentration[i] = -1.0
 		return concentration, chi2_concentration
 
-	def Environment_haas(self, f):
+	def Environment_haas(self, f: float):
 		"""
 
 		Measure of environment that is not correlated with host halo mass http://arxiv.org/abs/1103.0547.
 		Outputs: haas_env, distance to the closest neighbor with a mass larger than f * m200c, divided by its r200c 
+
+		Args: 
+			f: threshold to select minimum mass of neighbor to consider.
 
 		"""
 
@@ -144,16 +156,16 @@ class Catalog:
 			return fast_distance.cdist([node], nodes).argmin()
 
 		for i in range(self.N_halos):
-			halopos_exclude = np.delete(self.halopos, i, axis=0)
+			halopos_exclude = np.delete(self.GroupPos, i, axis=0)
 			m200c_exclude = np.delete(self.m200c, i)
 
 			halopos_neighbors = halopos_exclude[(m200c_exclude >= f * self.m200c[i])]
 			if halopos_neighbors.shape[0] == 0:
 				haas_env[i] = -1.0
 				continue
-			index_closest = closest_node(self.halopos[i], halopos_neighbors)
+			index_closest = closest_node(self.GroupPos[i], halopos_neighbors)
 			distance_fneigh = np.linalg.norm(
-				self.halopos[i] - halopos_neighbors[index_closest]
+				self.GroupPos[i] - halopos_neighbors[index_closest]
 			)
 
 			r200c_exclude = np.delete(self.r200c, i)
@@ -175,7 +187,7 @@ class Catalog:
 		for i in range(self.N_halos):
 			fsub[i] = (
 				np.sum(
-					self.snapshot.cat["SubhaloMassType"][
+					self.snapshot.cat["MassType"][
 						self.subhalo_offset[i]
 						+ 1 : self.subhalo_offset[i]
 						+ self.N_particles[i],
@@ -187,12 +199,15 @@ class Catalog:
 
 		return fsub
 
-	def periodic_distance(self, a, b):
+	def periodic_distance(self, a: np.ndarray, b: np.ndarray) -> np.array:
 		"""
 
 		Computes distance between vectors a and b in a periodic box
-		Inputs: a and b, 3d vectors
-		Outputs: dists, distance once periodic boundary conditions have been applied
+		Args:
+			a: first array.
+			b: second array.
+		Returns:
+			dists, distance once periodic boundary conditions have been applied
 
 		"""
 
@@ -217,73 +232,69 @@ class Catalog:
 		self.outer_s = np.zeros(self.N_halos)
 		for i in range(self.N_halos):
 			coordinates_halo = self.coordinates[self.group_offset[i] : self.group_offset[i] + self.N_particles[i],:]
-			distance = (coordinates_halo - self.halopos[i])/self.r200c[i]
+			distance = (coordinates_halo - self.GroupPos[i])/self.r200c[i]
 			self.inner_q[i],self.inner_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
 					self.r200c[i], 0,inner,weighted=True)
 			self.outer_q[i],self.outer_s[i], _, _  = ellipsoid.ellipsoidfit(distance,\
 					self.r200c[i], 0,outer,weighted=True)
 
 
-	def save_features(self):
+	def save_features(self, 
+			output_filename: str, 
+			features_to_save: list):
+		'''
+		Save given features to hdf5 
 
-		output_dir = '/cosma5/data/dp004/dc-cues1/features/'
-		self.output_filename = output_dir + f'halo_features_s{self.snapnum:2d}'
-		print(f'Saving their properties into {self.output_filename}')
+		Args:
+			output_filename: file to save hdf5 file.
+			features_to_save: list of feature names to save into file.
 
-		hf = h5py.File(self.output_filename, 'w')
+		'''
 
-		hf.create_dataset('boxsize', data = self.boxsize)
-		hf.create_dataset('Ngals', data = self.N_gals)
-		hf.create_dataset('N_subhalos', data= self.N_subhalos)
-		hf.create_dataset('M200c', data = self.m200c)
-		hf.create_dataset('R200c', data = self.r200c)
-		hf.create_dataset('Pos', data = self.halopos)
-		hf.create_dataset('Vel', data = self.halovel)
-		hf.create_dataset('VelDisp', data = self.vdisp)
-		hf.create_dataset('Vmax', data = self.vmax)
-		hf.create_dataset('Spin', data = self.spin)
-		hf.create_dataset('Fsub', data = self.fsub_unbound)
-		hf.create_dataset('x_offset', data = self.x_offset)
-		hf.create_dataset('stellar_mass', data = self.stellar_mass)
-		hf.close()
+		print(f'Saving their properties into {self.output_dir + output_filename}')
+
+		feature_list = []
+		for feature in features_to_save:
+			feature_list.append(getattr(self, feature))
+		feature_list = np.asarray(feature_list).T
+
+		df = pd.DataFrame( data = feature_list,
+					columns = features_to_save)
+
+		df.to_hdf(self.output_dir + output_filename, key = 'df', mode = 'w')
 
 
-class HaloCatalog:
-	def __init__(self, snapnum=99):
+
+
+class HaloCatalog(Catalog):
+
+	def __init__(self):
 		"""
 		Class to read halo catalogs from simulation
-
-		snapnum: snapshot number to read
 
 		"""
 
 		# Read snapshot
-
 		h5_dir = "/cosma7/data/TNG/TNG300-1-Dark/"
-		self.snapnum = snapnum
-		self.snapshot = read_hdf5.snapshot(snapnum, h5_dir)
-
+		super().__init__(h5_dir, 99)
 		self.boxsize = self.snapshot.header.boxsize / self.snapshot.header.hubble # kpc
-
-		# Useful definitions
-		self.dm = 1
-		self.stars = 4
-		self.dm_particle_mass = self.snapshot.header.massarr[self.dm] * 1.0e10
-
 		self.halo_mass_thresh = 1.0e11 
 
 		print("Minimum DM halo mass : %.2E" % self.halo_mass_thresh)
 
 		# Load fields that will be used
-		useful_properties = [
+		group_properties = [
 			"GroupFirstSub",
 			"Group_M_Crit200",
 			"GroupNsubs",
 			"GroupPos",
 			"GroupVel",
 			"Group_R_Crit200",
-			"SubhaloMassType",
 			"GroupMassType",
+		]
+
+		sub_properties = [
+			"SubhaloMassType",
 			"SubhaloCM",
 			"GroupCM",
 			"SubhaloMass",
@@ -293,7 +304,7 @@ class HaloCatalog:
 			"SubhaloVmax",
 		]
 
-		self.snapshot.group_catalog(useful_properties)
+		self.snapshot.group_catalog(group_properties + sub_properties)
 
 		self.N_subhalos = (self.snapshot.cat["GroupNsubs"]).astype(np.int64)
 		# Get only resolved halos
@@ -301,11 +312,8 @@ class HaloCatalog:
 				self.snapshot.cat["Group_M_Crit200"][:] * self.snapshot.header.hubble > self.halo_mass_thresh
 		)
 		# Save IDs of haloes
-		self.halo_id = np.arange(0, len(self.halo_mass_cut))
-		self.halo_id = self.halo_id[self.halo_mass_cut]
-
-		# self.group_offset = (np.cumsum(self.N_particles) - self.N_particles).astype(np.int64)
-		# self.group_offset = self.group_offset[self.halo_mass_cut]
+		self.ID_DMO = np.arange(0, len(self.halo_mass_cut))
+		self.ID_DMO = self.ID_DMO[self.halo_mass_cut]
 
 		self.subhalo_offset = (np.cumsum(self.N_subhalos) - self.N_subhalos).astype(
 			np.int64
@@ -317,49 +325,62 @@ class HaloCatalog:
 		self.N_halos = self.N_subhalos.shape[0]
 		print("%d resolved halos found." % self.N_halos)
 
-		self.N_gals, self.M_stars = self.Number_of_galaxies()
-		print("%d resolved galaxies found." % np.sum(self.N_gals))
-
-		self.logM_stars = np.log10(self.M_stars)
-
-		self.load_inmidiate_features()
+		self.load_inmidiate_features(group_properties, sub_properties)
 
 		self.compute_fsub_unbound()
 		self.compute_x_offset()
 
-class GalaxyCatalog:
+class GalaxyCatalog(Catalog):
 	def __init__(self, snapnum=99):
 		"""
-		Class to read halo catalogs from simulation
-
-		snapnum: snapshot number to read
+		Class to read galaxy catalogs from simulation
 
 		"""
 
 		# Read snapshot
 
 		h5_dir = "/cosma7/data/TNG/TNG300-1/"
-		self.snapnum = snapnum
-		self.snapshot = read_hdf5.snapshot(snapnum, h5_dir)
-
+		super().__init__(h5_dir, 99)
 		self.boxsize = self.snapshot.header.boxsize / self.snapshot.header.hubble # kpc
 
-		# Useful definitions
-		self.dm = 1
-		self.stars = 4
-		self.dm_particle_mass = self.snapshot.header.massarr[self.dm] * 1.0e10
-
 		self.stellar_mass_thresh = 1.0e9 
-		# self.halo_mass_thresh = self.dm_particle_mass * 100. # at least 100 particles
 		# Load fields that will be used
-		useful_properties = [
-			"GroupFirstSub",
-			"SubhaloMassType",
+		group_properties = [
+			"Group_M_Crit200",
 			"GroupMassType",
+			"GroupNsubs",
 		]
 
-		self.snapshot.group_catalog(useful_properties)
+		sub_properties = [
+			"SubhaloMassType",
+		]
 
+		self.snapshot.group_catalog(group_properties + sub_properties)
+
+
+		self.halo_mass_cut = (
+				self.snapshot.cat["Group_M_Crit200"][:] * self.snapshot.header.hubble > 0. 
+		)
+
+		N_halos_all = self.snapshot.cat['Group_M_Crit200'].shape[0]
+
+		self.ID_HYDRO = np.arange(0, N_halos_all)
+		self.ID_HYDRO = self.ID_HYDRO[self.halo_mass_cut]
+
+		self.N_halos= (self.snapshot.cat['Group_M_Crit200'])[self.halo_mass_cut].shape[0]
+
+		self.N_subhalos = (self.snapshot.cat["GroupNsubs"]).astype(np.int64)
+		self.subhalo_offset = (np.cumsum(self.N_subhalos) - self.N_subhalos).astype(
+			np.int64
+		)
+		self.subhalo_offset = self.subhalo_offset[self.halo_mass_cut]
+		self.N_subhalos = self.N_subhalos[self.halo_mass_cut]
+
+
+		self.Group_M_Crit200 = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut] * self.snapshot.header.hubble
+		self.N_gals, self.M_stars = self.Number_of_galaxies()
+		self.logM_stars = np.log10(self.M_stars)
+		print("%d resolved galaxies found." % np.sum(self.N_gals))
 
 		print("Minimum stellar mass : %.2E" % self.stellar_mass_thresh)
 
@@ -369,8 +390,10 @@ class GalaxyCatalog:
 		Given the halo catalog computes the stellar mass of a given halo, and its number of galaxies. 
 		The number of galaxies is defined as the number of subhalos that halo has over a given stellar mass 
 		defined inside the class
-		Outputs: N_gals, number of galaxies belonging to the halo
-				M_stars, mass of the stellar component bound to the halo
+
+		Returns:
+				N_gals: number of galaxies belonging to the halo
+				M_stars: mass of the stellar component bound to the halo
 
 		"""
 		# Subhaloes defined as galaxies with a stellar mass larger than the threshold
@@ -397,8 +420,13 @@ class GalaxyCatalog:
 
 
 
-
 if __name__ == "__main__":
 
 	halocat = HaloCatalog()
-	halocat.save_features()
+	features_to_save = ['ID_DMO','N_subhalos', 'Group_M_Crit200', 'Group_R_Crit200',
+			'VelDisp', 'Vmax', 'Spin', 'fsub_unbound', 'x_offset']
+	halocat.save_features('dmo_halos.hdf5', features_to_save)
+
+	galcat = GalaxyCatalog()
+	features_to_save = ['ID_HYDRO','N_gals', 'M_stars', 'Group_M_Crit200']
+	galcat.save_features('hydro_galaxies.hdf5', features_to_save)

@@ -35,8 +35,11 @@ class Catalog:
 				value *= self.snapshot.header.hubble
 			setattr(self, feature, value)
 
-		self.spin = (np.linalg.norm(self.spin_3d, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
+		self.spin_3d = (np.linalg.norm(self.SubhaloSpin, axis=1)/3.) / np.sqrt(2) / self.r200c /self.v200c
 
+		self.stellar_mass = self.SubhaloMassType[:, self.stars] 
+
+		'''
 		self.m200c = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut] * self.snapshot.header.hubble
 		self.r200c = self.snapshot.cat['Group_R_Crit200'][self.halo_mass_cut]
 		self.total_mass = self.snapshot.cat['GroupMassType'][self.halo_mass_cut, self.dm]
@@ -54,6 +57,7 @@ class Catalog:
 		#km/s
 
 		self.stellar_mass = self.snapshot.cat['SubhaloMassType'][self.firstsub, self.stars] * self.snapshot.header.hubble
+		'''
 
 
 	def compute_x_offset(self):

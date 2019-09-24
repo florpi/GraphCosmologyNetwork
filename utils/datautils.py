@@ -7,38 +7,27 @@ from imblearn.over_sampling import SMOTE
 
 
 def get_data(hdf5_filename: str, arg_label: str):
+    """
+    """
+    print("hdf5_filename,", hdf5_filename)
+    df = pd.read_hdf(hdf5_filename, key='df', mode='r')
 
-    # Load SubFind featured
-    with h5py.File(hdf5_filename, "r+") as feats:
-
-        features = np.column_stack(
-            [
-                feats["M200c"][:],
-                feats["R200c"][:],
-                feats["N_subhalos"][:],
-                feats["VelDisp"][:],
-                feats["Vmax"][:],
-                feats["Spin"][:],
-                feats["Fsub"][:],
-                feats["x_offset"][:],
-            ]
-        )
-
-        positions = feats["Pos"][:] / 1000.0
-        boxsize = feats["boxsize"].value / 1000.0  # to Mpc
-
-        # Chose label
-        if arg_label == "nr_of_galaxies":
-            labels = feats["Ngals"][:]
-            labels = labels > 0
+    # Chose label
+    if arg_label == "dark_or_light":
+        df['labels'] = df.N_gals > 0
+        df = df.drop(columns = 'N_gals')
+    elif arg_label == "nr_of_galaxies":
+        df['labels'] = df.N_gals
+        df = df.drop(columns = 'N_gals')
 
     # Test, train, validation split
     train_idx, test_idx, val_idx = _train_test_val_split(
-        labels.shape[0], train_size=0.5
+        df.labels.values.shape[0], train_size=0.5
     )
     test_idx = np.concatenate((test_idx, val_idx))  # TODO: only temporary
-    train = {"features": features[train_idx, :], "labels": labels[train_idx]}
-    test = {"features": features[test_idx, :], "labels": labels[test_idx]}
+
+    train = df.iloc[train_idx]
+    test = df.iloc[test_idx]
 
     return train, test
 

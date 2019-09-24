@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from typing import Any, Callable
 
-from GNN.inputs.datautils import _train_test_val_split as train_test_val_split
+from GNN.utils.datautils import _train_test_val_split as train_test_val_split
 from GNN.inputs import generate_graph
 from GNN.models import gcn, gat
 from GNN.utils.cm import plot_confusion_matrix

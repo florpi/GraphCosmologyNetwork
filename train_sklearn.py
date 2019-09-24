@@ -20,8 +20,7 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
 )
 
-from GNN.inputs.datautils import train_test_val_split
-from GNN.inputs import get_data
+from GNN.utils.datautils import get_data, balance_dataset
 from GNN.utils.config import load_config
 
 # from GNN.utils.importing import get_class_by_name
@@ -38,7 +37,7 @@ tag_datetime = datetime.now().strftime("%H%M_%d%m%Y")
 ex = Experiment("logs/sacred_%s.log" % tag_datetime)
 
 logging.basicConfig(
-    filename="logs/log_%s.log" % tag_datetime,
+    filename="experiments/logs/log_%s.log" % tag_datetime,
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%d-%b-%y %H:%M:%S",
@@ -49,7 +48,7 @@ logging.basicConfig(
 # -----------------------------------------------------------------------------
 
 
-@ex.config  # <- sacred decorator
+#@ex.config  # <- sacred decorator
 def get_arguments() -> argparse.Namespace:
     """
 	Set up an ArgumentParser to get the command line arguments.
@@ -67,7 +66,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         action="store_true",
-        default="nr_of_galaxies",
+        default="rnf",
         help=(
             "Which non-convolutional ML-model do you want to use: "
             + "rnf, xgboost, lightgbm? Default: rnf."
@@ -116,11 +115,11 @@ def get_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--experiment",
-        default="default",
+        default="config_sklearn",
         type=str,
         metavar="PATH",
         help="Name of the experiment to run (must be a folder "
-        'in the experiments dir). Default: "default".',
+        'in the experiments dir). Default: "config_sklearn".',
     )
 
     # Parse and return the arguments (as a Namespace object)
@@ -133,9 +132,9 @@ def get_arguments() -> argparse.Namespace:
 # -----------------------------------------------------------------------------
 
 
-@ex.automain  # <- sacred decorator
-def run():
-
+#@ex.automain  # <- sacred decorator
+#def run():
+if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # Preliminaries
     # -------------------------------------------------------------------------
@@ -152,7 +151,7 @@ def run():
 
     # Construct the path to the experiment config file
     experiment_dir = os.path.join("experiments", args.experiment)
-    config_file_path = os.path.join(experiment_dir, "config.json")
+    config_file_path = os.path.join(experiment_dir, "config_%s.json" % args.model)
 
     # Load the config
     config = load_config(config_file_path=config_file_path)
@@ -162,17 +161,9 @@ def run():
     # -------------------------------------------------------------------------
 
     # Load dataset
-    hdf5_filename = "/cosma5/data/dp004/dc-cues1/features/halo_features_s99"
-    feature_names = [
-        "M200c",
-        "R200c",
-        "N_subhalos",
-        "VelDisp",
-        "Vmax",
-        "Spin",
-        "Fsub",
-        "x_offset",
-    ]
+    output_file = 'merged_dataframe.h5'                                          
+    data_path = '/cosma6/data/dp004/dc-cues1/tng_dataframes/'
+    hdf5_filename = data_path + output_file 
     train, test = get_data(hdf5_filename, args.label)
 
     # Prepare datasets
@@ -180,30 +171,27 @@ def run():
     center_transition = 2.1e11
     end_transition = 8e11
 
-    df_train = pd.DataFrame(dict(zip(feature_names, train["features"].T)))
-    df_train["labels"] = train["labels"]
-
     logging.info(
-        "The labels before balancing are as follows:", df_train.labels.value_counts()
+        "The labels before balancing are as follows:", train.labels.value_counts()
     )
-    df_train = balance_dataset(
-        df_train, center_transition, end_transition, arg.sampling
+    train = balance_dataset(
+        train, center_transition, end_transition, args.sampling
     )
     logging.info(
         "The labels after balancing are as follows:",
-        df_train[df_train.M200c < center_transition].labels.value_counts(),
-        df_train[
-            (df_train.M200c > center_transition) & (df_train.M200c < end_transition)
+        train[train.M200c < center_transition].labels.value_counts(),
+        train[
+            (train.M200c > center_transition) & (train.M200c < end_transition)
         ].labels.value_counts(),
     )
 
-    df_train_features = df_train.drop(columns="labels")
-    df_train_labels = df_train["labels"]
+    train_features = train.drop(columns="labels")
+    train_labels = train["labels"]
 
     ## Standarize features
     scaler = StandardScaler()
-    scaler.fit(df_train_features)
-    std_train_features = scaler.transform(df_train_features)
+    scaler.fit(train_features)
+    std_train_features = scaler.transform(train_features)
     test_features = scaler.transform(test_features)
 
     if args.PCA is True:

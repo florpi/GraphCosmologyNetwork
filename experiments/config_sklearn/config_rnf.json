@@ -1,0 +1,1 @@
+{"experiment_dir": "blank", "model": {"module": "sklearn.ensemble", "class": "RandomForestClassifier", "parameters": {"n_estimators": 500, "random_state": 0}}}

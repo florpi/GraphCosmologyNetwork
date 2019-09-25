@@ -35,7 +35,6 @@ unique_matching_df = mass_matching_df.loc[mass_matching_df.ID_DMO.isin(unique_dm
 with h5py.File(additional_data_path + additional_properties_file,  'r') as hf:
         
     mass = hf['Haloes']['M200'][:]
-    vmax = hf['Haloes']['Vmax'][:]
     rmax = hf['Haloes']['Rmax'][:]
     r200c = hf['Haloes']['R200'][:]
     cnfw = hf['Haloes']['Cnfw'][:]
@@ -45,12 +44,12 @@ with h5py.File(additional_data_path + additional_properties_file,  'r') as hf:
     #parametrized_cnfw = vmax/(rmax * 70)
     properties_ids = hf['Haloes']['GroupNumber'][:]
 
-properties = np.vstack([properties_ids,mass, vmax, rmax,
+properties = np.vstack([properties_ids,mass, rmax,
                                      r200c, cnfw, rhosnfw]).T
 
 
 properties_df = pd.DataFrame(data = properties,
-                             columns = ['ID_DMO', 'M200c', 'Vmax', 'Rmax', 
+                             columns = ['ID_DMO', 'M200c', 'Rmax', 
                                         'R200c', 'Cnfw', 'Rhosnfw'])
 
 merged_matching_df = pd.merge(unique_matching_df, properties_df, on = ['ID_DMO'], how = 'inner')
@@ -88,7 +87,8 @@ dmo_merged_df = dmo_merged_df.drop(columns = ['Group_R_Crit200'])
 
 hydro_df = pd.read_hdf(data_path + hydro_file)
 
-hydro_merged_df = pd.merge(dmo_merged_df, hydro_df, on = ['ID_HYDRO'], how = 'inner')
+hydro_merged_df = pd.merge(dmo_merged_df, hydro_df, on = ['ID_HYDRO'], how = 'inner', suffixes = ('_dmo', '_hydro'))
+
 np.testing.assert_allclose(hydro_merged_df.M200_HYDRO, hydro_merged_df.Group_M_Crit200, rtol = 1e-3)
 hydro_merged_df = hydro_merged_df.drop(columns = ['Group_M_Crit200'])
 

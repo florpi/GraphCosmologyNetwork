@@ -253,13 +253,26 @@ class Catalog:
 
 		print(f'Saving their properties into {self.output_dir + output_filename}')
 
+		if 'GroupPos' in features_to_save:
+			remove_grouppos = True
+		else:
+			remove_grouppos = False
+
 		feature_list = []
 		for feature in features_to_save:
-			feature_list.append(getattr(self, feature))
+			if feature != 'GroupPos':
+				feature_list.append(getattr(self, feature))
+
 		feature_list = np.asarray(feature_list).T
+		features_to_save.remove('GroupPos') if 'GroupPos' in features_to_save else None
 
 		df = pd.DataFrame( data = feature_list,
-					columns = features_to_save)
+				columns = features_to_save)
+
+		if remove_grouppos:
+			df['x'] = self.GroupPos[:,0]/1000. # To Mpc/h
+			df['y'] = self.GroupPos[:,1]/1000.
+			df['z'] = self.GroupPos[:,2]/1000.
 
 		df.to_hdf(self.output_dir + output_filename, key = 'df', mode = 'w')
 
@@ -349,6 +362,7 @@ class GalaxyCatalog(Catalog):
 			"Group_M_Crit200",
 			"GroupMassType",
 			"GroupNsubs",
+			"GroupPos"
 		]
 
 		sub_properties = [
@@ -378,6 +392,7 @@ class GalaxyCatalog(Catalog):
 
 
 		self.Group_M_Crit200 = self.snapshot.cat['Group_M_Crit200'][self.halo_mass_cut] * self.snapshot.header.hubble
+		self.GroupPos = self.snapshot.cat['GroupPos'][self.halo_mass_cut, :] 
 		self.N_gals, self.M_stars = self.Number_of_galaxies()
 		self.logM_stars = np.log10(self.M_stars)
 		print("%d resolved galaxies found." % np.sum(self.N_gals))
@@ -424,9 +439,9 @@ if __name__ == "__main__":
 
 	halocat = HaloCatalog()
 	features_to_save = ['ID_DMO','N_subhalos', 'Group_M_Crit200', 'Group_R_Crit200',
-			'VelDisp', 'Vmax', 'Spin', 'fsub_unbound', 'x_offset']
+			'VelDisp', 'Vmax', 'Spin', 'fsub_unbound', 'x_offset' , 'GroupPos']
 	halocat.save_features('dmo_halos.hdf5', features_to_save)
 
 	galcat = GalaxyCatalog()
-	features_to_save = ['ID_HYDRO','N_gals', 'M_stars', 'Group_M_Crit200']
+	features_to_save = ['ID_HYDRO','N_gals', 'M_stars', 'Group_M_Crit200', 'GroupPos']
 	galcat.save_features('hydro_galaxies.hdf5', features_to_save)

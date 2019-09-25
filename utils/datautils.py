@@ -4,6 +4,7 @@ import numpy as np
 from typing import Any, Callable
 from sklearn.utils import resample
 from imblearn.over_sampling import SMOTE
+from scipy.interpolate import interp1d
 
 
 def get_data(hdf5_filename: str, arg_label: str):
@@ -53,10 +54,37 @@ def _train_test_val_split(n_nodes, train_size=0.7):
 
 	return train_idx, test_idx, val_idx
 
+def _find_transition_regions(df: pd.DataFrame):
+	"""
+
+	Function to find two masses: where half the haloes are luminous, and where all haloes are luminous
+
+	Args:
+		df: dataframe containing masses and wheather luminous or dark
+	Returns:
+		mass_center: mass at which half of the haloes are luminous.
+		mass_end: mass at which 100% of haloes are luminous.
+
+	"""
+	nbins= 15
+	bins = np.logspace(np.log10(np.min(df.M200c)),
+			                   12.5, nbins+1)
+
+	nluminous, mass_edges, _ = binned_statistic(df.M200c, df.labels, statistic = 'mean', bins = bins)
+
+	interpolator = interp1d(nluminous, (mass_edges[1:]+mass_edges[:-1])/2.)
+
+	mass_center = interpolator(0.5)
+
+	mass_end = ((mass_edges[1:] + mass_edges[:-1])/2.)[nluminous == 1.][0]
+
+	return mass_center, mass_end
+
+
 
 def balance_dataset(
 	df, center_transition: float, end_transition: float, arg_sampling: str
-):
+): -> pd.DataFrame
 
 	# TODO: fix balance parameters; return none 
 	df_sample = _balance_df_given_mass(

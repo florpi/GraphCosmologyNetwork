@@ -20,7 +20,9 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
 )
 
-from GNN.utils.datautils import get_data, balance_dataset, find_transition_regions
+from GNN.utils.datautils import (
+    get_data, balance_dataset, find_transition_regions, pca_transform
+)
 from GNN.utils.config import load_config
 
 from sacred import Experiment
@@ -52,7 +54,7 @@ def cfg():
         "model": "rnf",  # ["rnf, xgboost, lightgbm]
         "label": "dark_or_light",  # [dark_or_light, nr_of_galaxies, central_or_satellite, ..]
         "sampling": "upsample",  # [upsample, downsample]
-        "use_pca": False,
+        "use_pca": True,
     }
     ex.add_config(config_gen)
 
@@ -84,6 +86,7 @@ def main(model, label, sampling, use_pca):
     # Prepare datasets
     ## Balance training set in the transition region
     center_transition, end_transition = find_transition_regions(train)
+    print("balance centre: ", center_transition, end_transition)
 
     ex.log_scalar(
         "The labels before balancing are as follows:", train.labels.value_counts()
@@ -114,10 +117,16 @@ def main(model, label, sampling, use_pca):
     test_features = scaler.transform(test_features)
     
     if use_pca == True:
-        print("Do PCA +++++++++++++++++++")
-        # Create a PCA objec
-        pcas = PCA(n_components=train_features.shape[1])
-        test_features = pcas.fit_transform(test_features)
+        # Create PCA-features according to best cross-validation score
+        train_features, test_features, n_components = pca_transform(
+                train_features, test_features
+        )
+        ex.log_scalar(
+            "Feature space dimensions has be set to:", n_components 
+        )
+        use_pca_tag = 1
+    else:
+        use_pca_tag = 0
 
     # -------------------------------------------------------------------------
     # Set-up and Run random-forest (RNF) model
@@ -130,13 +139,13 @@ def main(model, label, sampling, use_pca):
     test_pred = rf.predict(test_features)
 
     # Save results
-    fname_out = "./outputs/train_%s_%s" % (model, tag_datetime)
+    fname_out = "./outputs/train_%s_pca%s_%s" % (model, use_pca_tag, tag_datetime)
     #train_labels.to_hdf(fname_out, key="df", mode="w")
     np.save(fname_out, train_labels)
 
-    fname_out = "./outputs/test_%s_%s" % (model, tag_datetime)
+    fname_out = "./outputs/test_%s_pca%s_%s" % (model, use_pca_tag, tag_datetime)
     #test_labels.to_hdf(fname_out, key="df", mode="w")
     np.save(fname_out, test_labels)
 
-    fname_out = "./outputs/predic_%s_%s" % (model, tag_datetime)
+    fname_out = "./outputs/predic_%s_pca%s_%s" % (model, use_pca_tag, tag_datetime)
     np.save(fname_out, test_pred)

@@ -1,6 +1,10 @@
 import numpy as np
 from typing import Any, Callable
+
 from sklearn.utils import resample
+from sklearn.decomposition import PCA
+from sklearn.model_selection import cross_val_score
+
 from scipy.stats import binned_statistic
 
 import h5py
@@ -158,3 +162,68 @@ def _balance_df_given_mass(
 
     # elif mode == 'smote':
     # 	sm = SMOTE(random_state = 12, ratio = 1.)
+
+
+def pca_transform(train: np.ndarray, test: np.ndarray, arg_pca):
+    """
+    """
+    
+    if arg_pca == int:
+        return _pca_manual(train, test, arg_pca)
+    elif arg_pca == "cross_val"
+        return _pca_cross_val(train, test)
+
+    elif arg_pca == 'mle':
+        return _pca_mle(train, test)
+
+
+def _pca_manual(train, test, n_components):
+    """
+    """
+    pca = PCA(n_components=n_components)
+
+    # Perform feature optimization
+    train = pca.fit_transform(train)
+    test = pca.fit_transform(test)
+    
+    return train, test, n_components_pca
+
+
+def _pca_cross_val(train, test):
+    """
+    """
+    pca = PCA(svd_solver='full')
+
+    pca_scores = []
+    n_components = np.arange(0, train.shape[1], 1)
+
+    # determine cross-val. score for different dimensions of feature space
+    for n in n_components:
+        pca.n_components = n
+        pca_scores.append(np.mean(cross_val_score(pca, train, cv=5)))
+
+    # choose # of dimensions with highest cross-val. score
+    # another option would be: pca = PCA(svd_solver='full', n_components='mle')
+    n_components_pca = n_components[np.argmax(pca_scores)]
+    pca.n_components = n_components_pca
+    
+    # Perform feature optimization
+    train = pca.fit_transform(train)
+    test = pca.fit_transform(test)
+
+    return train, test, n_components_pca
+
+
+def _pca_mle(train, test):
+    """
+    """
+    pca = PCA(svd_solver='full', n_components='mle')
+
+    # Perform feature optimization
+    train = pca.fit_transform(train)
+    test = pca.fit_transform(test)
+    
+    n_components_pca = "mle"
+
+    return train, test, n_components_pca
+

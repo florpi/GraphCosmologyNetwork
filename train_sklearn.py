@@ -55,7 +55,7 @@ def cfg():
 	config_gen = {
 		"model": 'rnf', #["rnf, xgboost, lightgbm] 
 		"label": 'dark_or_light', #[dark_or_light, nr_of_galaxies, central_or_satellite, ..]
-		"sampling": 'upsample',  #[upsampling, downsampling] 
+		"sampling": 'upsample',  #[upsample, downsample] 
 		"PCA": False, 
 	} 
 	ex.add_config(config_gen)
@@ -114,14 +114,14 @@ def main(model, label, sampling, PCA):
 	## Standarize features
 	scaler = StandardScaler()
 	scaler.fit(train_features)
-	std_train_features = scaler.transform(train_features)
+	train_features = scaler.transform(train_features)
 	test_features = scaler.transform(test_features)
 
 	if PCA is True:
 		# n_comp = 7
 		# pca = PCA(n_components=n_comp)
-		# pca = PCA().fit(std_train_features)
-		pca_data = PCA().fit_transform(std_train_features)
+		# pca = PCA().fit(train_features)
+		pca_data = PCA().fit_transform(train_features)
 		pca_inv_data = PCA().inverse_transform(np.eye(len(feature_names)))
 
 	# -------------------------------------------------------------------------

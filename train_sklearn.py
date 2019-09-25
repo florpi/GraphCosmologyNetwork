@@ -55,7 +55,7 @@ def cfg():
 	config_gen = {
 		"model": 'rnf', #["rnf, xgboost, lightgbm] 
 		"label": 'dark_or_light', #[dark_or_light, nr_of_galaxies, central_or_satellite, ..]
-		"sampling": 'upsampling',  #[upsampling, downsampling] 
+		"sampling": 'upsample',  #[upsampling, downsampling] 
 		"PCA": False, 
 	} 
 	ex.add_config(config_gen)
@@ -92,7 +92,7 @@ def main(model, label, sampling, PCA):
 		"The labels before balancing are as follows:", train.labels.value_counts()
 	)
 	train = balance_dataset(
-		train, center_transition, end_transition, args.sampling
+		train, center_transition, end_transition, sampling
 	)
 	ex.log_scalar(
 		"The labels after balancing are as follows:\n a)",
@@ -146,5 +146,5 @@ def main(model, label, sampling, PCA):
 
 if __name__=='__main__':
 
-	main('rnf', 'dark_or_light','upsampling', False)
+	main('rnf', 'dark_or_light','upsample', False)
  

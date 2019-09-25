@@ -103,7 +103,7 @@ def balance_dataset(
 		mode=arg_sampling,
 	)
 
-	return df_train_sample
+	return df_sample 
 
 
 def _find_center_of_balance(df):
@@ -154,6 +154,7 @@ def _balance_df_given_mass(
 			n_samples=df_M_majority.shape[0],
 			random_state=123,
 		)
+
 		return pd.concat([df_M_majority, df_M_minority_upsampled, df[~mass_threshold]])
 
 	elif mode == "downsample":

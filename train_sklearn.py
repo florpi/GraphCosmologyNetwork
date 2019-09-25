@@ -67,70 +67,84 @@ def cfg():
 # -----------------------------------------------------------------------------
 #@ex.automain
 def main(model, label, sampling, PCA):
+
 	logging.info("")
-	logging.info(f"GROWING TREES")
-	logging.info("")
+    logging.info(f"GROWING TREES")
+    logging.info("")
 
-	# ML-model settings
-	config_file_path = "experiments/config_sklearn/config_%s.json" % model
-	config = load_config(config_file_path=config_file_path)
+    # ML-model settings
+    config_file_path = "experiments/config_sklearn/config_%s.json" % model
+    config = load_config(config_file_path=config_file_path)
 
-	# -------------------------------------------------------------------------
-	# Load and prepare datasets
-	# -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Load and prepare datasets
+    # -------------------------------------------------------------------------
 
-	# Load dataset
-	output_file = 'merged_dataframe.h5'											 
-	data_path = '/cosma6/data/dp004/dc-cues1/tng_dataframes/'
-	hdf5_filename = data_path + output_file 
-	train, test = get_data(hdf5_filename, label)
+    # Load dataset
+    output_file = 'merged_dataframe.h5'                                          
+    data_path = '/cosma6/data/dp004/dc-cues1/tng_dataframes/'
+    hdf5_filename = data_path + output_file 
+    train, test = get_data(hdf5_filename, label)
 
-	# Prepare datasets
-	## Balance training set in the transition region
-	center_transition, end_transition = find_transition_regions(train)
-	print(center_transition)
-	print(end_transition)
+    # Prepare datasets
+    ## Balance training set in the transition region
+    ex.log_scalar(
+        "The labels before balancing are as follows:", train.labels.value_counts()
+    )
+    train = balance_dataset(
+        train, center_transition, end_transition, args.sampling
+    )
+    ex.log_scalar(
+        "The labels after balancing are as follows:\n a)",
+        train[train.M200c < center_transition].labels.value_counts(),
+    )
+    ex.log_scalar(
+        "b)",
+        train[
+            (train.M200c > center_transition) & (train.M200c < end_transition)
+        ].labels.value_counts(),
+    )
 
-	train_features = train.drop(columns="labels")
-	train_labels = train["labels"]
-	
-	test_features = test.drop(columns="labels")
-	test_labels = test["labels"]
+    train_features = train.drop(columns="labels")
+    train_labels = train["labels"]
+    
+    test_features = test.drop(columns="labels")
+    test_labels = test["labels"]
 
-	## Standarize features
-	scaler = StandardScaler()
-	scaler.fit(train_features)
-	std_train_features = scaler.transform(train_features)
-	test_features = scaler.transform(test_features)
+    ## Standarize features
+    scaler = StandardScaler()
+    scaler.fit(train_features)
+    std_train_features = scaler.transform(train_features)
+    test_features = scaler.transform(test_features)
 
-	if PCA is True:
-		# n_comp = 7
-		# pca = PCA(n_components=n_comp)
-		# pca = PCA().fit(std_train_features)
-		pca_data = PCA().fit_transform(std_train_features)
-		pca_inv_data = PCA().inverse_transform(np.eye(len(feature_names)))
+    if PCA is True:
+        # n_comp = 7
+        # pca = PCA(n_components=n_comp)
+        # pca = PCA().fit(std_train_features)
+        pca_data = PCA().fit_transform(std_train_features)
+        pca_inv_data = PCA().inverse_transform(np.eye(len(feature_names)))
 
-	# -------------------------------------------------------------------------
-	# Set-up and Run random-forest (RNF) model
-	# -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Set-up and Run random-forest (RNF) model
+    # -------------------------------------------------------------------------
 
-	rf = RandomForestClassifier(**config["model"]["parameters"])
-	rf.fit(train_features, train_labels)
+    rf = RandomForestClassifier(**config["model"]["parameters"])
+    rf.fit(train_features, train_labels)
 
-	# Run RNF
-	test_pred = rf.predict(test_features)
+    # Run RNF
+    test_pred = rf.predict(test_features)
 
-	# Save results
-	fname_out = "./outputs/train_%s_%s" % (model, tag_datetime)
-	train_labels.to_hdf(fname_out, key='df', mode='w')
-	
-	fname_out = "./outputs/test_%s_%s" % (model, tag_datetime)
-	test_labels.to_hdf(fname_out, key='df', mode='w')
+    # Save results
+    fname_out = "./outputs/train_%s_%s" % (model, tag_datetime)
+    train_labels.to_hdf(fname_out, key='df', mode='w')
+    
+    fname_out = "./outputs/test_%s_%s" % (model, tag_datetime)
+    test_labels.to_hdf(fname_out, key='df', mode='w')
 
-	fname_out = "./outputs/predic_%s_%s" % (model, tag_datetime)
-	np.save(fname_out, test_pred)
-
+    fname_out = "./outputs/predic_%s_%s" % (model, tag_datetime)
+    np.save(fname_out, test_pred)
 
 if __name__=='__main__':
 
 	main('rnf', 'dark_or_light','upsampling', False)
+ 

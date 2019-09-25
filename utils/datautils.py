@@ -1,8 +1,11 @@
-import h5py
-import pandas as pd
 import numpy as np
 from typing import Any, Callable
 from sklearn.utils import resample
+from scipy.stats import binned_statistic
+
+import h5py
+import pandas as pd
+
 from imblearn.over_sampling import SMOTE
 from scipy.interpolate import interp1d
 
@@ -101,6 +104,34 @@ def balance_dataset(
 	)
 
 	return df_train_sample
+
+
+def _find_center_of_balance(df):
+    """
+    """
+
+    # bin data
+    nbins= 15
+    bins = np.logspace(
+        np.log10(np.min(df.M200c)),
+        12.5,
+        nbins+1,
+    )
+    
+    # nr. of luminous galaxies
+    nluminous, edges, _ = binned_statistic(
+        df.M200c,
+        df.labels, 
+        statistic='mean',
+        bins=bins,
+    )
+
+    # Find x for which y = 0.5
+    interpolator = interp1d(nluminous, (edges[1:]+edges[:-1])/2.)
+    centre = interpolator(0.5)
+    end = ((edges[1:]+edges[:-1])/2.)[nluminous == 1.][0]
+    
+    return centre, end
 
 
 def _balance_df_given_mass(

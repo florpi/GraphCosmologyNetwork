@@ -85,9 +85,22 @@ def main(model, label, sampling, PCA):
 
     # Prepare datasets
     ## Balance training set in the transition region
-    #TODO: find these params automatically
-    center_transition = 2.1e11
-    end_transition = 8e11
+    ex.log_scalar(
+        "The labels before balancing are as follows:", train.labels.value_counts()
+    )
+    train = balance_dataset(
+        train, center_transition, end_transition, args.sampling
+    )
+    ex.log_scalar(
+        "The labels after balancing are as follows:\n a)",
+        train[train.M200c < center_transition].labels.value_counts(),
+    )
+    ex.log_scalar(
+        "b)",
+        train[
+            (train.M200c > center_transition) & (train.M200c < end_transition)
+        ].labels.value_counts(),
+    )
 
     train_features = train.drop(columns="labels")
     train_labels = train["labels"]

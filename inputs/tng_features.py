@@ -253,13 +253,24 @@ class Catalog:
 
 		print(f'Saving their properties into {self.output_dir + output_filename}')
 
+		if 'GroupPos' in features_to_save:
+			remove_grouppos = True
+
 		feature_list = []
 		for feature in features_to_save:
-			feature_list.append(getattr(self, feature))
+			if feature != 'GroupPos':
+				feature_list.append(getattr(self, feature))
+
 		feature_list = np.asarray(feature_list).T
+		features_to_save.remove('GroupPos') if 'GroupPos' in features_to_save else None
 
 		df = pd.DataFrame( data = feature_list,
-					columns = features_to_save)
+				columns = features_to_save)
+
+		if remove_grouppos:
+			df['x'] = self.GroupPos[:,0]
+			df['y'] = self.GroupPos[:,1]
+			df['z'] = self.GroupPos[:,2]
 
 		df.to_hdf(self.output_dir + output_filename, key = 'df', mode = 'w')
 
@@ -424,9 +435,11 @@ if __name__ == "__main__":
 
 	halocat = HaloCatalog()
 	features_to_save = ['ID_DMO','N_subhalos', 'Group_M_Crit200', 'Group_R_Crit200',
-			'VelDisp', 'Vmax', 'Spin', 'fsub_unbound', 'x_offset']
+			'VelDisp', 'Vmax', 'Spin', 'fsub_unbound', 'x_offset', 'GroupPos']
 	halocat.save_features('dmo_halos.hdf5', features_to_save)
 
+	'''
 	galcat = GalaxyCatalog()
 	features_to_save = ['ID_HYDRO','N_gals', 'M_stars', 'Group_M_Crit200']
 	galcat.save_features('hydro_galaxies.hdf5', features_to_save)
+	'''

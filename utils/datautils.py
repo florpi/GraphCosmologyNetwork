@@ -18,10 +18,10 @@ def get_data(hdf5_filename: str, arg_label: str):
 	# Chose label
 	if arg_label == "dark_or_light":
 		df['labels'] = df.N_gals > 0
-		df = df.drop(columns = ['N_gals', 'M_stars', 'x_hydro', 'y_hydro', 'z_hydro'])
+		df = df.drop(columns = ['N_gals', 'ID_HYDRO', 'ID_DMO', 'M200_HYDRO', 'M_stars', 'x_hydro', 'y_hydro', 'z_hydro'])
 	elif arg_label == "nr_of_galaxies":
 		df['labels'] = df.N_gals
-		df = df.drop(columns = ['N_gals', 'M_stars', 'x_hydro', 'y_hydro', 'z_hydro'])
+		df = df.drop(columns = ['N_gals', 'ID_HYDRO', 'ID_DMO', 'M200_HYDRO', 'M_stars', 'x_hydro', 'y_hydro', 'z_hydro'])
 	elif arg_label == "both":
 		df['labels'] = df.N_gals > 0
 
@@ -88,22 +88,21 @@ def find_transition_regions(df: pd.DataFrame):
 def balance_dataset(
 	df, center_transition: float, end_transition: float, arg_sampling: str
 ): 
+    # TODO: fix balance parameters; return none 
+    df_sample = _balance_df_given_mass(
+        df, "labels", 0.0, center_transition, 0, 1, mode=arg_sampling
+    )
+    df_sample = _balance_df_given_mass(
+        df_sample,
+        "labels",
+        center_transition,
+        end_transition,
+        1,
+        0,
+        mode=arg_sampling,
+    )
 
-	# TODO: fix balance parameters; return none 
-	df_sample = _balance_df_given_mass(
-		df, "labels", 0.0, center_transition, 0, 1, mode=arg_sampling
-	)
-	df_sample = _balance_df_given_mass(
-		df_sample,
-		"labels",
-		center_transition,
-		end_transition,
-		1,
-		0,
-		mode=arg_sampling,
-	)
-
-	return df_sample 
+    return df_sample 
 
 
 def _find_center_of_balance(df):

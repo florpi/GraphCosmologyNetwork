@@ -23,8 +23,6 @@ from sklearn.metrics import (
 from GNN.utils.datautils import get_data, balance_dataset, find_transition_regions
 from GNN.utils.config import load_config
 
-# from GNN.utils.importing import get_class_by_name
-
 from sacred import Experiment
 import logging
 
@@ -35,7 +33,7 @@ tag_datetime = datetime.now().strftime("%H%M_%d%m%Y")
 
 ex = Experiment(
 	"sacred_%s" % tag_datetime,
-	#interactive=False,
+	interactive=False,
 )
 
 logging.basicConfig(
@@ -56,7 +54,7 @@ def cfg():
 		"model": 'rnf', #["rnf, xgboost, lightgbm] 
 		"label": 'dark_or_light', #[dark_or_light, nr_of_galaxies, central_or_satellite, ..]
 		"sampling": 'upsample',  #[upsample, downsample] 
-		"PCA": False, 
+		"use_pca": True, 
 	} 
 	ex.add_config(config_gen)
 	
@@ -64,7 +62,7 @@ def cfg():
 # MAIN CODE
 # -----------------------------------------------------------------------------
 @ex.automain
-def main(model, label, sampling, PCA):
+def main(model, label, sampling, use_pca):
 
 	logging.info("")
 	logging.info(f"GROWING TREES")
@@ -117,12 +115,11 @@ def main(model, label, sampling, PCA):
 	train_features = scaler.transform(train_features)
 	test_features = scaler.transform(test_features)
 
-	if PCA is True:
-		# n_comp = 7
-		# pca = PCA(n_components=n_comp)
-		# pca = PCA().fit(train_features)
-		pca_data = PCA().fit_transform(train_features)
-		pca_inv_data = PCA().inverse_transform(np.eye(len(feature_names)))
+    #if use_pca == True:
+    # Create a PCA object
+    pca = PCA(n_components=len(train_features.columns.values))
+    # Fit the PCA and transform the data
+    train_features = pca.fit_transform(train_features.values)
 
 	# -------------------------------------------------------------------------
 	# Set-up and Run random-forest (RNF) model
@@ -144,7 +141,4 @@ def main(model, label, sampling, PCA):
 	fname_out = "./outputs/predic_%s_%s" % (model, tag_datetime)
 	np.save(fname_out, test_pred)
 
-if __name__=='__main__':
-
-	main('rnf', 'dark_or_light','upsample', False)
  

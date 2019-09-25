@@ -52,7 +52,7 @@ def cfg():
         "model": "rnf",  # ["rnf, xgboost, lightgbm]
         "label": "dark_or_light",  # [dark_or_light, nr_of_galaxies, central_or_satellite, ..]
         "sampling": "upsample",  # [upsample, downsample]
-        "use_pca": True,
+        "use_pca": False,
     }
     ex.add_config(config_gen)
 
@@ -100,29 +100,24 @@ def main(model, label, sampling, use_pca):
         ].labels.value_counts(),
     )
 
-    train_features = train.drop(columns="labels")
-    train_labels = train["labels"]
+    # split in features and labels and convert pd.Dataframe to np.array
+    train_features = train.drop(columns="labels").values
+    train_labels = train["labels"].values
 
-    test_features = test.drop(columns="labels")
-    test_labels = test["labels"]
+    test_features = test.drop(columns="labels").values
+    test_labels = test["labels"].values
 
     ## Standarize features
     scaler = StandardScaler()
     scaler.fit(train_features)
     train_features = scaler.transform(train_features)
     test_features = scaler.transform(test_features)
-
-	if use_pca == True:
-	    # Create a PCA object
-	    pcas = PCA(n_components=len(train_features.columns.values))
-	    train_feat_pca = pcas.fit_transform(train_features.values)
-
-	    # convert array back to dataframe
-	    train_features = pd.DataFrame(
-	        data=train_feat_pca,
-	        index=np.arange(train_feat_pca.shape[0]),
-	        columns=["PCA_%d" % dd for dd in range(train_feat_pca.shape[1])],
-	    )
+    
+    if use_pca == True:
+        print("Do PCA +++++++++++++++++++")
+        # Create a PCA objec
+        pcas = PCA(n_components=train_features.shape[1])
+        test_features = pcas.fit_transform(test_features)
 
     # -------------------------------------------------------------------------
     # Set-up and Run random-forest (RNF) model
@@ -136,10 +131,12 @@ def main(model, label, sampling, use_pca):
 
     # Save results
     fname_out = "./outputs/train_%s_%s" % (model, tag_datetime)
-    train_labels.to_hdf(fname_out, key="df", mode="w")
+    #train_labels.to_hdf(fname_out, key="df", mode="w")
+    np.save(fname_out, train_labels)
 
     fname_out = "./outputs/test_%s_%s" % (model, tag_datetime)
-    test_labels.to_hdf(fname_out, key="df", mode="w")
+    #test_labels.to_hdf(fname_out, key="df", mode="w")
+    np.save(fname_out, test_labels)
 
     fname_out = "./outputs/predic_%s_%s" % (model, tag_datetime)
     np.save(fname_out, test_pred)

@@ -112,7 +112,6 @@ def find_transition_regions(df: pd.DataFrame):
 def balance_dataset(
     df, center_transition: float, end_transition: float, arg_sampling: str
 ):
-    # TODO: fix balance parameters; return none
     df_sample = _balance_df_given_mass(
         df, "labels", 0.0, center_transition, 0, 1, mode=arg_sampling
     )

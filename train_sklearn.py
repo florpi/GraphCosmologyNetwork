@@ -25,7 +25,7 @@ from GNN.utils.config import load_config
 
 # from GNN.utils.importing import get_class_by_name
 
-#from sacred import Experiment
+from sacred import Experiment
 import logging
 
 # -----------------------------------------------------------------------------
@@ -33,12 +33,10 @@ import logging
 # -----------------------------------------------------------------------------
 tag_datetime = datetime.now().strftime("%H%M_%d%m%Y")
 
-'''
 ex = Experiment(
 	"sacred_%s" % tag_datetime,
 	#interactive=False,
 )
-'''
 
 logging.basicConfig(
 	filename="experiments/logs/log_%s.log" % tag_datetime,

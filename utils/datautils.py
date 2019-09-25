@@ -6,7 +6,7 @@ from scipy.stats import binned_statistic
 import h5py
 import pandas as pd
 
-from imblearn.over_sampling import SMOTE
+#from imblearn.over_sampling import SMOTE
 from scipy.interpolate import interp1d
 
 
@@ -18,10 +18,10 @@ def get_data(hdf5_filename: str, arg_label: str):
 	# Chose label
 	if arg_label == "dark_or_light":
 		df['labels'] = df.N_gals > 0
-		df = df.drop(columns = ['N_gals', 'M_stars', 'x', 'y', 'z'])
+		df = df.drop(columns = ['N_gals', 'M_stars', 'x_hydro', 'y_hydro', 'z_hydro'])
 	elif arg_label == "nr_of_galaxies":
 		df['labels'] = df.N_gals
-		df = df.drop(columns = ['N_gals', 'M_stars', 'x', 'y', 'z'])
+		df = df.drop(columns = ['N_gals', 'M_stars', 'x_hydro', 'y_hydro', 'z_hydro'])
 	elif arg_label == "both":
 		df['labels'] = df.N_gals > 0
 

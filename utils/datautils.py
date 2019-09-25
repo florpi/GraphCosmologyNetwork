@@ -54,7 +54,7 @@ def _train_test_val_split(n_nodes, train_size=0.7):
 
 	return train_idx, test_idx, val_idx
 
-def _find_transition_regions(df: pd.DataFrame):
+def find_transition_regions(df: pd.DataFrame):
 	"""
 
 	Function to find two masses: where half the haloes are luminous, and where all haloes are luminous
@@ -84,7 +84,7 @@ def _find_transition_regions(df: pd.DataFrame):
 
 def balance_dataset(
 	df, center_transition: float, end_transition: float, arg_sampling: str
-): -> pd.DataFrame
+): 
 
 	# TODO: fix balance parameters; return none 
 	df_sample = _balance_df_given_mass(

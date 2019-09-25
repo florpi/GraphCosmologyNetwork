@@ -48,6 +48,7 @@ logging.basicConfig(
 # -----------------------------------------------------------------------------
 # General Settings/Command-line settings 
 # -----------------------------------------------------------------------------
+
 @ex.config
 def cfg():
     # General settings
@@ -68,9 +69,6 @@ def main(model, label, sampling, PCA):
     logging.info(f"GROWING TREES")
     logging.info("")
 
-    # Read in command line arguments
-    args = get_arguments()
-    
     # ML-model settings
     config_file_path = "experiments/config_sklearn/config_%s.json" % model
     config = load_config(config_file_path=config_file_path)
@@ -120,10 +118,12 @@ def main(model, label, sampling, PCA):
     # Run RNF
     test_pred = rf.predict(test_features)
 
-    # ex.log_scalar("true_cancel_count", true_cancel_count)  # <- sacred decorator
-    # ex.log_scalar("pred_cancel_count", pred_cancel_count)  # <- sacred decorator
-    # ex.log_scalar("train_cancel_orders", train_cancel_count)  # <- sacred decorator
+    # Save results
+    fname_out = "./outputs/train_%s_%s" % (model, tag_datetime)
+    train_labels.to_hdf(fname_out, key='df', mode='w')
+    
+    fname_out = "./outputs/test_%s_%s" % (model, tag_datetime)
+    test_labels.to_hdf(fname_out, key='df', mode='w')
 
-    # Save result
-    fname_out = "./outputs/%s_%s" % (model, tag_datetime)
+    fname_out = "./outputs/predic_%s_%s" % (model, tag_datetime)
     np.save(fname_out, test_pred)

@@ -87,7 +87,8 @@ dmo_merged_df = dmo_merged_df.drop(columns = ['Group_R_Crit200'])
 
 hydro_df = pd.read_hdf(data_path + hydro_file)
 
-hydro_merged_df = pd.merge(dmo_merged_df, hydro_df, on = ['ID_HYDRO'], how = 'inner')
+hydro_merged_df = pd.merge(dmo_merged_df, hydro_df, on = ['ID_HYDRO'], how = 'inner', suffixes = ('_dmo', '_hydro'))
+
 np.testing.assert_allclose(hydro_merged_df.M200_HYDRO, hydro_merged_df.Group_M_Crit200, rtol = 1e-3)
 hydro_merged_df = hydro_merged_df.drop(columns = ['Group_M_Crit200'])
 

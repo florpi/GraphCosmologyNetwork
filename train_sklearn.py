@@ -24,6 +24,7 @@ from GNN.utils.datautils import (
     get_data, balance_dataset, find_transition_regions, pca_transform
 )
 from GNN.utils.config import load_config
+#from GNN.models import ()
 
 from sacred import Experiment
 import logging
@@ -132,9 +133,47 @@ def main(model, label, sampling, use_pca):
     # Set-up and Run random-forest (RNF) model
     # -------------------------------------------------------------------------
 
-    rf = RandomForestClassifier(**config["model"]["parameters"])
-    rf.fit(train_features, train_labels)
+    if model == 'rnf': 
+        rf = RandomForestClassifier(**config["model"]["parameters"])
+        rf.fit(train_features, train_labels)
+        test_pred = rf.predict(test_features)
+    elif model == 'lightgbm':
+        x, x_test, y, y_test = train_test_split(
+            train_features.values, train_labels.values,
+            test_size=0.2,
+            random_state=42,
+            stratify=train_labels.values
+        )
+        lgb_train = lightgbm.Dataset(
+            x,
+            label=y,
+            #categorical_feature=list(feature_names)
+        )
+        lgb_eval = lightgbm.Dataset(
+            x_test,
+            label=y_test
+        )
+        model = lightgbm.train(
+            parameters,
+            lgb_train,
+            valid_sets=lgb_eval,
+            num_boost_round=50,
+            early_stopping_rounds=5,
+        )
+        test_pred = model.predict(test_features)
+        test_pred = test_pred > 0.5
 
+    # Save results
+    fname_out = "./outputs/train_%s_pca%s_%s" % (model, use_pca_tag, tag_datetime)
+    #train_labels.to_hdf(fname_out, key="df", mode="w")
+    np.save(fname_out, train_labels)
+
+    fname_out = "./outputs/test_%s_pca%s_%s" % (model, use_pca_tag, tag_datetime)
+    #test_labels.to_hdf(fname_out, key="df", mode="w")
+    np.save(fname_out, test_labels)
+
+    fname_out = "./outputs/predic_%s_pca%s_%s" % (model, use_pca_tag, tag_datetime)
+    np.save(fname_out, test_pred)
     # Run RNF
     test_pred = rf.predict(test_features)
 
